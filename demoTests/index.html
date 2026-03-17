@@ -1,0 +1,73 @@
+﻿<!DOCTYPE html>
+<html>
+<title>SVGMap Technology Demo Page</title>
+<!-- viewport 知表示領域を画面全体とする定義 -->
+<meta name="viewport" content="width=device-width,user-scalable=no,initial-scale=1.0,maximum-scale=1.0" />
+<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<!-- SVGMapのコアAPIの読み込み -->
+<script type="text/javascript" src="https://unpkg.com/jsts@1.6.1/dist/jsts.min.js"></script>
+<script type="module">
+import { CorsProxy } from 'https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/CorsProxyModule.js';
+import { svgMap } from 'https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/SVGMapLv0.1_r18module.js';
+window.svgMap=svgMap
+var corsProxy = new CorsProxy();
+
+// プロキシの設定
+var proxyPath = "https://service.svgmap.org/corsaw/"; // CORS anywhere for svgmap.org / service.svgmap.org
+corsProxy.setService(proxyPath, null, true,false);
+window.corsProxy = corsProxy;
+svgMap.setProxyURLFactory(null,null,null, corsProxy.getURLfunction(), true); // ビットイメージ非線形図法変換の時のみプロキシを使う
+
+// ハイライトの設定
+if ( svgMap.setDefaultHilightStyle ){
+	svgMap.setDefaultHilightStyle({ fill:{color:"",lineWidth:2,lineColor:"red"}})
+}
+</script>
+
+<script src="imgs/customShowPoiProperty.js"></script>
+
+
+<!-- レイヤーリストUIのスタイルシート読み込み -->
+<link href="./imgs/layerListStyle.css" rel="stylesheet" type="text/css">
+
+<body bgcolor="#ffffff" style="overflow:hidden;" >
+<!-- 地図SVGファイルを複数含む(このチュートリアルでは5ファイルのみ)コンテナファイル(Container.svg)の読み込み -->
+ <div id="mapcanvas" data-src="../Container.svg" ></div>
+ <div id="gui">
+<!-- ズームアップボタン -->
+  <img id="zoomupButton" style="left: 5px; top: 5px; position: absolute;" src="./imgs/zoomup.png" onclick="svgMap.zoomup()" width="20" height="20" />
+<!-- ズームダウンボタン -->
+  <img id="zoomdownButton" style="left: 5px; top: 25px; position: absolute;" src="./imgs/zoomdown.png" onclick="svgMap.zoomdown()" width="20" height="20" />
+<!-- GPSボタン -->
+  <img id="gpsButton" style="left: 5px; top: 45px; position: absolute;" src="./imgs/gps.png" onclick="svgMap.gps()" width="20" height="20" />
+<!-- 3Dボタン -->
+  <img id="3DviewButton" class="customButton"  style="left: 5px; top:65px; position: absolute;" src="./imgs/globeEs.png" width="20" height="20" data-app="./cesiumSvgMap/cesiumWindow4.html"/>
+  
+<!-- 画面右上に表示するタイトル -->
+  <font color="blue" style="right: 30px; top: 2px; position: absolute;font-size:10px" >Powered by <a href="https://www.svgmap.org/" target="_blank">SVGMap</a> technology</font>
+<!-- 中央に表示される十字マーク -->
+  <img id="centerSight" style="opacity:0.5" src="./imgs/Xcursor.png" width="15" height="15"/>
+<!-- 画面左下に表示される十字マークの緯度・経度(タイトル) -->
+  <font id="posCmt" size="-2" color="brown" style="left: 5px; bottom: 5px; position: absolute;">Lat,Lng:</font>
+<!-- 画面左下に表示される十字マークの緯度・経度(実際の値の初期表示) -->
+  <font id="centerPos" size="-2" color="brown" style="left: 50px; bottom: 5px; position: absolute;" >lat , lng</font>
+<!-- 縦のスケール -->
+  <img id="vscaleImg" style="left: 5px; bottom: 35px; position: absolute;" src="./imgs/vscale.png" />
+  <font id="vScale" size="-2" color="black" style="left: 5px; bottom: 20px; position: absolute;">xxx Km</font>
+<!-- パーマリンクコピー機能 -->
+  <img id="copyPermaLink" style="right: 5px; top: 5px; position: absolute;width:15px;height:15px;cursor:pointer;" onclick="svgMap.getBasicPermanentLink(true)" src="./imgs/permaLink.png" title="パーマリンクをクリックボードにコピーする">
+
+<!-- レイヤーリストUIの表示 -->
+  <div id="layerList" style="left :30px; top: 10px; width:300px;height:90%; position: absolute; " data-customizer="./SVGMapCustomLayersManager.html" data-layerstylecontroller data-hiddenfilter></div>
+<!-- レイヤー固有UIの表示 -->
+  <div id="layerSpecificUI" style="right :10px; top: 40px; width:400px;height:400px; position: absolute; background-color: white;opacity:0.8;display:none;"></div>
+<!-- グローバルメッセージエリア -->
+  <span id="globalMessage" style="font-size:10px;left:80px;bottom:20px;position:absolute;"></span>  
+<!-- 注記 -->
+  <span id="noticeTextJ" style="font-size:10px; left: 170px; bottom: 12px; position: absolute;background-color:rgba(0,200,200,0.5)">注記：このページは、<a href="https://svgmap.org/" target="_blabk">SVGMap</a>技術のプレビューのためにのみ提供されています。本ページ作成者は、表示された各レイヤの情報を利用した結果生じたいかなる損害についても、一切の責任を負いません。</span>
+  <span id="noticeTextE" style="font-size:9px; left: 170px; bottom: 1px; position: absolute;background-color:rgba(0,200,200,0.5)">Notice: This page is provided solely for technical preview of <a href="https://svgmap.org/" target="_blabk">SVGMap</a> technology. The originator of this page assumes no responsibility for any damages resulting from the use of the information on each layer displayed.</span>
+ </div>
+</body>
+</html>

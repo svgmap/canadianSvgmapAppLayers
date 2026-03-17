@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:go="http://purl.org/svgmap/profile" viewBox="-133 -73 70 35" >
+
+<globalCoordinateSystem srsName="http://purl.org/crs/84" transform="matrix(1.0,0.0,0.0,-1.0,0.0,0.0)" />
+
+<!-- Global: Basemaps -->
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="../svgmapAppLayers/basemaps/dynamicWMTS.svg" title="sentinel2_2018_WMTS" class="basemap switch" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="../svgmapAppLayers/basemaps/osmTileProviders/osmtp.svg" title="OpenStreetMap Etc" class="basemap switch" visibility="hidden"/>
+<animation x="-300" y="-300" width="600" height="600" xlink:href="../svgmapAppLayers/basemaps/dynamicOSM_r11.svg" title="OpenStreetMap(Global)" class="basemap switch" visibility="visible"/>
+
+<!-- Global: Geocoders -->
+<animation xlink:href="../svgmapAppLayers/geoCoders/plusCoder/plusCode.svg" title="plus coder" x="-30000" y="-30000" width="60000" height="60000" class="geoCoder" opacity="1" visibility="hidden"/>
+<animation xlink:href="../svgmapAppLayers/geoCoders/geohashCoder/geohash.svg" title="geohashCoder" x="-30000" y="-30000" width="60000" height="60000" class="geoCoder" opacity="1" visibility="hidden"/>
+<animation class="geoCoder" title="UTMGridCoder" xlink:href="../svgmapAppLayers/geoCoders/utmGridCoder/utmGridCoder.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="1" />
+
+<!-- Globale GeocodersGIS的なもののグループ -->
+<animation class="GIS" title="Street View" xlink:href="../svgmapAppLayers/appLayers/streetView/instantStreetView.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="1" />
+<animation class="GIS" title="GeoidHeightCalculator" xlink:href="../svgmapAppLayers/geoProcessingLayers/gsiGeoidCoder/geoidCalc.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
+<animation class="GIS editable" title="bitimageTracer" xlink:href="../svgmapAppLayers/geoProcessingLayers/bitimage2vector/img2vector.svg" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
+<animation class="GIS editable" title="Raster GIS" xlink:href="../svgmapAppLayers/geoProcessingLayers/rasterGisLayer/rasterGisLayer6.svg" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
+<animation class="GIS editable clickable" title="Vector GIS" xlink:href="../svgmapAppLayers/geoProcessingLayers/vectorGisLayer/vectorGisLayer.svg" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" />
+<animation class="GIS clickable editable" xlink:href="../svgmapAppLayers/geoProcessingLayers/vectorGisLayer/vectorGIS_Lv2.svg" data-cross-origin-restricted="true" x="-30000" y="-30000" width="60000" height="60000" title="Vector GIS Complex" opacity="1" visibility="hidden"/>
+
+<!-- Global: Authoring tools -->
+<animation xlink:href="../svgmapAppLayers/authoringLayers/local/kmlLoader/kmlLoader.svg" title="KML(MyMaps) data display" data-cross-origin-restricted="true" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" class="Authoring_File clickable" opacity="0.6" visibility="hidden"/>
+<animation xlink:href="../svgmapAppLayers/authoringLayers/local/vectorFileLoader/vectorFileLoader3.svg" title="shape・GeoJSON data display" data-cross-origin-restricted="true" x="-30000" y="-30000" width="60000" height="60000" class="Authoring_File clickable" opacity="0.6" visibility="hidden"/>
+<animation xlink:href="../svgmapAppLayers/authoringLayers/local/userXYZtile/userXYZtile.svg" title="XYZ tile content display" data-cross-origin-restricted="true" x="-30000" y="-30000" width="60000" height="60000" class="Authoring_File" opacity="0.7" visibility="hidden"/>
+<animation xlink:href="../svgmapAppLayers/authoringLayers/local/simpleRaster/simpleRaster.svg" title="free hand authoring" x="-30000" y="-30000" width="60000" height="60000" class="Authoring_File clickable editable" opacity="0.6" visibility="hidden"/>
+<animation xlink:href="../svgmapAppLayers/authoringLayers/local/simpleVector/simpleVector.svg" title="vector authoring" x="-30000" y="-30000" width="60000" height="60000" class="Authoring_File clickable editable" opacity="0.6" visibility="hidden"/>
+<animation xlink:href="../svgmapAppLayers/authoringLayers/local/csvLayer/csvXhr_r20.svg" title="CSV data display" data-cross-origin-restricted="true" x="-30000" y="-30000" width="60000" height="60000" class="Authoring_File editable" opacity="0.75" visibility="hidden"/>
+<animation class="Authoring_File" title="bitimage2geoInfo" xlink:href="../svgmapAppLayers/authoringLayers/local/bitImage2geoInfo/bitimage2geo.svg" data-cross-origin-restricted="true" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.5" />
+
+<!-- Global or US layers -->
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="../svgmapAppLayers/appLayers/droneBird/droneBird.svg" title="DRONEBIRD" class="Disaster" visibility="hidden" opacity="0.7"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="../svgmapAppLayers/appLayers/nasa_FIRMS/firms.svg" title="Fire (NASA FIRMS)" class="Disaster" visibility="hidden" opacity="0.7"/>
+
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="../svgmapAppLayers/appLayers/openSeaMap/dynamicOpenSeaMap.svg" title="dynamicOpenSeaMap seamark" class="MARINE" visibility="hidden"/>
+
+<animation class="Infrastructures" title="starlinkUnofficialGS" xlink:href="../svgmapAppLayers/appLayers/starlinkUnofficialGS/test.svg" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.6" data-controller="../info.html" />
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="../svgmapAppLayers/appLayers/openinframap/openinframap.svg" title="Open Infrastructure Map" class="Infrastructures clickable" visibility="hidden"/>
+
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="../svgmapAppLayers/appLayers/usgsEq/usgsEarthquake.svg" title="Earthquake Hazards Program(USGS)" class="Earthquake clickable" visibility="hidden" opacity="0.7"/> 
+
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="../svgmapAppLayers/appLayers/noaa_nowCOAST/wmsMercator.svg#global_sea_surface_temperature" data-controller="noaa.html#exec=appearOnLayerLoad" title="NOAA SST: Sea Surface Temperature data." data-cross-origin-proxy-required="true" class="Weather" visibility="hidden" opacity="0.6"/> 
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="../svgmapAppLayers/appLayers/noaa_nowCOAST/wmsMercator.svg#ldn_lightning_strike_density" data-controller="noaa.html#exec=appearOnLayerLoad" title="NOAA Lightning: Real-time lightning strike detection." data-cross-origin-proxy-required="true" class="Weather" visibility="hidden" opacity="0.6"/> 
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="../svgmapAppLayers/appLayers/noaa_nowCOAST/wmsMercator.svg#global_water_vapor_imagery_mosaic" data-controller="noaa.html#exec=appearOnLayerLoad" title="NOAA Water Vapor: Atmospheric humidity levels." data-cross-origin-proxy-required="true" class="Weather" visibility="hidden" opacity="0.6"/> 
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="../svgmapAppLayers/appLayers/noaa_nowCOAST/wmsMercator.svg#global_longwave_imagery_mosaic" data-controller="noaa.html#exec=appearOnLayerLoad" title="NOAA Infrared: Cloud-top temperature and nighttime imagery." data-cross-origin-proxy-required="true" class="Weather" visibility="hidden" opacity="0.6"/> 
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="../svgmapAppLayers/appLayers/noaa_nowCOAST/wmsMercator.svg#global_visible_imagery_mosaic" data-controller="noaa.html#exec=appearOnLayerLoad" title="NOAA Visible: High-resolution daylight imagery." data-cross-origin-proxy-required="true" class="Weather" visibility="hidden" opacity="0.6"/> 
+<animation title="JTWC Typhoon Info: Official Joint Typhoon Warning Center updates." xlink:href="../svgmapAppLayers/appLayers/niiDigitalTyphoon/jtwcN.svg" data-cross-origin-proxy-required="true" class="Weather" x="-30000" y="-30000" width="60000" height="60000" opacity="0.7" visibility="hidden"/>
+<animation title="JTWC KML: Typhoon tracking data." xlink:href="../svgmapAppLayers/appLayers/niiDigitalTyphoon/jtwc_KML.svg" class="Weather clickable" x="-30000" y="-30000" width="60000" height="60000" opacity="0.6" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="../svgmapAppLayers/appLayers/yrNo/yrNoTiles.svg#noforecast" title="yr.no Weather: Temp, cloud cover, and rainfall data." class="Weather" visibility="hidden" opacity="0.4" /> 
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="../svgmapAppLayers/appLayers/yrNo/windy/windyYrNo.svg#noforecast" title="yr.no Wind (Animated): Animated wind speed and direction." class="Weather" visibility="hidden" opacity="0.7" /> 
+<animation class="Weather" title="JAXA GSMaP: Global Satellite Mapping of Precipitation." xlink:href="../svgmapAppLayers/appLayers/jaxaGSMaP/dynamicWebTile.svg#globe&amp;baseURL=none&amp;zmax=11" data-controller="GEMaP.html#exec=appearOnLayerLoad&amp;requiredWidth=400&amp;cat=GSMaP_NOW&amp;autoupdate&amp;noforecast" data-cross-origin-proxy-required="true" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
+<animation class="Weather" title="JAXA GSMaP (Wind Vectors): JAXA Global Satellite Mapping of Precipitation." xlink:href="../svgmapAppLayers/appLayers/jaxaGSMaP/dynamicWebTile.svg#globe&amp;baseURL=none&amp;zmax=11" data-controller="GEMaP.html#exec=appearOnLayerLoad&amp;requiredWidth=400&amp;cat=NEXRA:ss_uv10m_img&amp;autoupdate&amp;noforecast" x="-30000" y="-30000" width="60000" height="60000" visibility="hidden" opacity="0.65"/> 
+
+
+
+<!-- "The following are the Canada layers stored in this canadianSvgmapAppLayers repository. -->
+
+<!-- Canadian road libecams -->
+<animation xlink:href="./liveCams/Quebec/webcam.svg" x="-30000" y="-30000" width="60000" height="60000" title="Québec (Données Québec)" visibility="hidden" opacity="0.7" class="Canadian_RoadLiveCameras"/>
+<animation xlink:href="./liveCams/Ontario/webcam.svg" x="-30000" y="-30000" width="60000" height="60000" title="Ontario (Ontario 511)" visibility="hidden" opacity="0.7" class="Canadian_RoadLiveCameras"/>
+<animation xlink:href="./liveCams/Manitoba/webcam.svg" x="-30000" y="-30000" width="60000" height="60000" title="Manitoba (Manitoba 511)" visibility="hidden" opacity="0.7" class="Canadian_RoadLiveCameras"/>
+<animation xlink:href="./liveCams/Saskatchewan/webcam.svg" x="-30000" y="-30000" width="60000" height="60000" title="Saskatchewan (Saskatchewan Highway Hotline)" visibility="hidden" opacity="0.7" class="Canadian_RoadLiveCameras"/>
+<animation xlink:href="./liveCams/Alberta/webcam.svg" x="-30000" y="-30000" width="60000" height="60000" title="Alberta (511 Alberta)" visibility="hidden" opacity="0.7" class="Canadian_RoadLiveCameras"/>
+<animation xlink:href="./liveCams/BritishColumbia/webcam.svg" x="-30000" y="-30000" width="60000" height="60000" title="British Columbia (Drive BC)" visibility="hidden" opacity="0.7" class="Canadian_RoadLiveCameras"/>
+
+
+</svg>

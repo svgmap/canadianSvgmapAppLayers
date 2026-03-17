@@ -1,0 +1,127 @@
+<!doctype html>
+<html>
+<head>
+<title>tottori bousai view</title>
+</head>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="customShowPoiProperty.js"></script>
+<script>
+// Description:
+//  drivebc.ca live camera layer
+//
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+var endPointUrl ="https://www.drivebc.ca/api/webcams/?";
+
+onload=async function(){
+	
+	var camJson= await(await fetch(svgMap.getCORSURL(endPointUrl))).json();
+	console.log(camJson);
+	var gjs = convertDriveBCToGeoJSON(camJson,["imageUrl","caption","last_update_modified","last_update_attempt"]);
+	console.log(gjs);
+	
+	setTitle(gjs.geojson,"name");
+	const metaDict = gjs.propertyList;
+	
+	svgMap.setShowPoiProperty(customShowPoiProperty, layerID);
+	svgImage.documentElement.setAttribute("property",metaDict.join());
+	svgMapGIStool.drawGeoJson(gjs.geojson,layerID,"red",2,"orange","p2","name",null,null,metaDict);
+	svgMap.refreshScreen();
+}
+
+/**
+ * DriveBCのJSONをGeoJSONに変換し、プロパティリストを生成する
+ * @param {Array} data - DriveBCのAPIレスポンス
+ * @param {Array} priorityProps - 先頭に配置したいプロパティ名の配列 (例: ['name', 'imageUrl'])
+ * @returns {Object} { geojson, propertyList }
+ */
+function convertDriveBCToGeoJSON(data, priorityProps = []) {
+  const propertySet = new Set();
+  
+  const features = data.map(item => {
+    const properties = {};
+    
+    const flatten = (obj, prefix = '') => {
+      for (const [key, value] of Object.entries(obj)) {
+        if (key === 'location' || key === 'links') continue;
+        const propName = prefix ? `${prefix}:${key}` : key;
+
+        if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+          flatten(value, propName);
+        } else {
+          properties[propName] = value;
+          propertySet.add(propName);
+        }
+      }
+    };
+
+    flatten(item);
+
+    // 画像URL等の正規化
+    if (item.links?.imageDisplay) {
+      properties["imageUrl"] = `https://www.drivebc.ca${item.links.imageDisplay}`;
+      propertySet.add("imageUrl");
+    }
+    if (item.links?.replayTheDay) {
+      properties["replayUrl"] = `https://www.drivebc.ca${item.links.replayTheDay}`;
+      propertySet.add("replayUrl");
+    }
+
+    return {
+      type: "Feature",
+      geometry: item.location,
+      properties: properties
+    };
+  });
+
+  // プロパティリストの並び替え
+  const allProps = Array.from(propertySet);
+  // 1. 優先プロパティのうち、実際にデータに存在するものを抽出
+  const header = priorityProps.filter(p => propertySet.has(p));
+  // 2. それ以外のプロパティをアルファベット順で取得
+  const remainder = allProps.filter(p => !priorityProps.includes(p)).sort();
+  
+  const finalPropertyList = [...header, ...remainder];
+
+  return {
+    geojson: {
+      type: "FeatureCollection",
+      features: features
+    },
+    propertyList: finalPropertyList
+  };
+}
+
+// svgMapGIStool.drawGeoJson は、titleプロパティをティッカー表示するので・・・
+function setTitle(gjs,titlePropName){
+	(gjs.features).forEach(function(item,idx){
+		//console.log(item);
+		if(item.properties.name){
+			item.properties.title = item.properties[titlePropName];
+			delete item.properties[titlePropName];
+		}
+	});
+}
+
+async function getJsStr(url){
+	var res = await fetch(svgMap.getCORSURL(url));
+	var arrayBuffer = await res.arrayBuffer();
+	var jsString = new TextDecoder('utf-8').decode(arrayBuffer);
+	console.log(jsString);
+	return ( jsString );
+}
+
+</script>
+
+<body>
+  <h4>British Columbia Live Cam Layer</h4>
+  <div style="font-size:12px; list-style-type: none; padding: 0;">
+    <li style="margin-bottom: 4px;">Source: <a href="https://catalogue.data.gov.bc.ca/dataset/bc-highwaycams" target="_blank">DriveBC data catalog</a></li>
+    <li>Icon: <img src="cameraFill3.png" width="18" height="18" style="vertical-align: middle;"></li>
+  </div>
+</body>
+</html>

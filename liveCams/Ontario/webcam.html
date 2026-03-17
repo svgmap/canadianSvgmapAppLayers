@@ -1,0 +1,108 @@
+<!doctype html>
+<html>
+<head>
+<title>Ontario Live Cam Layer</title>
+</head>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script>
+// Description:
+//	511on.ca live camera layer (Direct Image Access)
+//
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+var endPointUrl = "https://511on.ca/api/v2/get/cameras";
+// スキーマ（プロパティの並び順）を厳密に定義
+var metaDict = ["itemId", "name", "source", "imageUrl", "desc"];
+
+onload = async function() {
+	var camJson = await (await fetch(svgMap.getCORSURL(endPointUrl))).json();
+	var gjs = convertONToGeoJSON(camJson);
+	
+	// title プロパティの生成（ティッカー用）
+	setTitle(gjs, "name");
+	
+	svgMap.setShowPoiProperty(showONProperty, layerID);
+	
+	// SVGのルートにスキーマをセット（これがメタデータの「型」になる）
+	svgImage.documentElement.setAttribute("property", metaDict.join(","));
+	
+	// drawGeoJson に metaDict を渡して、content属性を正しく生成させる
+	svgMapGIStool.drawGeoJson(gjs, layerID, "red", 2, "orange", "p2", "name", null, null, metaDict);
+	svgMap.refreshScreen();
+}
+
+/**
+ * オンタリオ州の初期JSONからGeoJSON化
+ */
+function convertONToGeoJSON(rawData) {
+	const features = rawData.map(cam => {
+		const firstView = cam.Views && cam.Views.length > 0 ? cam.Views[0] : null;
+		
+		return {
+			type: "Feature",
+			geometry: {
+				type: "Point",
+				coordinates: [cam.Longitude, cam.Latitude]
+			},
+			properties: {
+				itemId: cam.Id,
+				name: cam.Location || "Unknown",
+				source: "Ontario 511",
+				imageUrl: firstView ? firstView.Url : "",
+				desc: firstView ? (firstView.Description || cam.Roadway) : (cam.Roadway || "")
+			}
+		};
+	});
+
+	return {
+		type: "FeatureCollection",
+		features: features,
+		propertyList: metaDict // ここも固定したスキーマを返す
+	};
+}
+
+function setTitle(gjs, titlePropName) {
+	(gjs.features).forEach(function(item) {
+		item.properties.title = item.properties[titlePropName];
+	});
+}
+
+/**
+ * オンタリオ州：モーダル表示
+ */
+async function showONProperty(target) {
+	var message = "<table border='1' style='font-size:11px;word-break: break-all;table-layout:fixed;width:100%;border:solid orange;border-collapse: collapse'>";
+	message += "<tr><th style='width:20%'>name</th><th>value</th></tr>";
+	
+	// スキーマとコンテンツを正確にパース
+	var metaSchema = target.ownerDocument.firstChild.getAttribute("property").split(",");
+	var metaData = svgMap.parseEscapedCsvLine(target.getAttribute("content"));
+	
+	metaData.forEach(function(itm, idx) {
+		var key = metaSchema[idx];
+		if (key === "imageUrl" && itm) {
+			itm = `<a target="img" href="${itm}"><img style="opacity:1" src="${itm}" width="100%" /></a>`;
+		}
+		message += "<tr><td>" + key + " </td><td> " + (itm || "") + "</td></tr>";
+	});
+
+	message += "</table>";
+	message += "<div style='font-size:9px; margin-top:5px; color:#666;'>© 2026, King's Printer for Ontario (Open Government Licence – Ontario).</div>";
+
+	svgMap.showModal(message, 400, 380);
+}
+</script>
+
+<body>
+	<h4>Ontario Live Cam Layer</h4>
+	<div style="font-size:12px; list-style-type: none; padding: 0;">
+		<li style="margin-bottom: 4px;">Source: <a href="https://511on.ca/" target="_blank">Ontario 511</a></li>
+		<li style="margin-bottom: 4px;">Icon: <img src="cameraFill3.png" width="18" height="18" style="vertical-align: middle;">
+		<li>© 2026, King's Printer for Ontario.</li>
+	</div>
+</body>
+</html>

@@ -1,0 +1,134 @@
+<!doctype html>
+<html>
+<head>
+<title>Saskatchewan Live Cam Layer</title>
+</head>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script>
+// Description:
+//	hotline.gov.sk.ca live camera layer
+//
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+var endPointUrl = "https://hotline.gov.sk.ca/map/mapIcons/Cameras";
+
+onload = async function() {
+	var camJson = await (await fetch(svgMap.getCORSURL(endPointUrl))).json();
+	var gjs = convertSKToGeoJSON(camJson);
+	
+	setTitle(gjs, "itemId");
+	const metaDict = gjs.propertyList;
+	
+	svgMap.setShowPoiProperty(showSKProperty, layerID);
+	svgImage.documentElement.setAttribute("property", metaDict.join());
+	svgMapGIStool.drawGeoJson(gjs, layerID, "red", 2, "orange", "p2", "name", null, null, metaDict);
+	svgMap.refreshScreen();
+}
+
+/**
+ * サスカチュワン州の初期位置リストをGeoJSON化
+ */
+function convertSKToGeoJSON(rawData) {
+	const features = rawData.item2.map(cam => {
+		return {
+			type: "Feature",
+			geometry: {
+				type: "Point",
+				coordinates: [cam.location[1], cam.location[0]]
+			},
+			properties: {
+				itemId: cam.itemId,
+				name: "Loading...",
+				source: "Saskatchewan Highway Hotline",
+				imageUrl: null,
+				desc: null,
+			}
+		};
+	});
+
+	return {
+		type: "FeatureCollection",
+		features: features,
+		propertyList: ["title", "itemId", "source", "imageUrl", "desc"],
+	};
+}
+
+function setTitle(gjs, titlePropName) {
+	(gjs.features).forEach(function(item) {
+		if (item.properties.name) {
+			item.properties.title = "Camera:" + item.properties[titlePropName];
+		}
+	});
+}
+
+/**
+ * サスカチュワン州専用：クリック時にHTMLをオンデマンドで取得
+ */
+async function showSKProperty(target) {
+	var message = "<table border='1' style='font-size:11px;word-break: break-all;table-layout:fixed;width:100%;border:solid orange;border-collapse: collapse'>";
+	message += "<tr><th style='width:20%'>name</th><th>value</th></tr>";
+	
+	var titleAndLayerName = target.getAttribute("data-title") + "/" + target.getAttribute("data-layername") + "\n";
+	message += "<tr><td>title/Layer</td><td> " + titleAndLayerName + "</td></tr>";
+	
+	var metaSchema = target.ownerDocument.firstChild.getAttribute("property").split(",");
+	var metaData = svgMap.parseEscapedCsvLine(target.getAttribute("content"));
+	
+	var itemId = metaData[metaSchema.indexOf("itemId")];
+	const tooltipUrl = `https://hotline.gov.sk.ca/tooltip/Cameras/${itemId}?lang=en`;
+	const itemData = await getSkCamItemData(tooltipUrl);
+
+	if (itemData) {
+		metaData[metaSchema.indexOf("title")] = itemData.title;
+		metaData[metaSchema.indexOf("desc")] = itemData.desc;
+		metaData[metaSchema.indexOf("imageUrl")] = itemData.imageUrl;
+	}
+	
+	metaData.forEach(function(itm, idx) {
+		if (metaSchema[idx] == "imageUrl" && itm) {
+			itm = `<a target="img" href="${itm}"><img style="opacity:1" src="${itm}" width="100%" /></a>`;
+		}
+		message += "<tr><td>" + metaSchema[idx] + " </td><td> " + (itm || "") + "</td></tr>";
+	});
+
+	message += "</table>";
+	message += "<div style='font-size:9px; margin-top:5px; color:#666;'>© 2026, Government of Saskatchewan. Reproduced with permission.</div>";
+
+	svgMap.showModal(message, 400, 350);
+}
+
+async function getSkCamItemData(tturl) {
+	try {
+		const res = await fetch(svgMap.getCORSURL(tturl));
+		const html = await res.text();
+
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(html, "text/html");
+		const imgTag = doc.querySelector(".cctvImage");
+
+		const title = imgTag?.getAttribute("data-fs-title") || "Camera";
+		const desc = imgTag?.getAttribute("data-fs-desc") || "N/A";
+		const relImgPath = imgTag?.getAttribute("data-lazy") || "";
+		const imageUrl = relImgPath ? `https://hotline.gov.sk.ca${relImgPath}?` : "";
+		return { title, desc, imageUrl };
+	} catch (e) {
+		console.log(e);
+		return null;
+	}
+}
+</script>
+
+<body>
+	<h4>Saskatchewan Live Cam Layer</h4>
+	<div style="font-size:12px; list-style-type: none; padding: 0;">
+		<li style="margin-bottom: 4px;">Source: <a href="https://hotline.gov.sk.ca/" target="_blank">Saskatchewan Highway Hotline</a></li>
+		<li style="margin-bottom: 4px;">Icon: <img src="cameraFill3.png" width="18" height="18" style="vertical-align: middle;">
+		<li> © 2026, Government of Saskatchewan.</li>
+		<li style="font-size:10px; color:#555;">Usage: Licensed under <a href="https://www.saskatchewan.ca/copyright" target="_blank">Copyright and Reuse terms</a>.</li>
+	</div>
+</body>
+</html>
