@@ -58,6 +58,7 @@
 <!-- "The following are the Canada layers stored in this canadianSvgmapAppLayers repository. -->
 
 <!-- Canadian road libecams -->
+<animation xlink:href="./liveCams/Ottawa/webcam.svg" x="-30000" y="-30000" width="60000" height="60000" title="Ottawa City" visibility="hidden" opacity="0.7" class="Canadian_RoadLiveCameras"/>
 <animation xlink:href="./liveCams/Quebec/webcam.svg" x="-30000" y="-30000" width="60000" height="60000" title="Québec (Données Québec)" visibility="hidden" opacity="0.7" class="Canadian_RoadLiveCameras"/>
 <animation xlink:href="./liveCams/Ontario/webcam.svg" x="-30000" y="-30000" width="60000" height="60000" title="Ontario (Ontario 511)" visibility="hidden" opacity="0.7" class="Canadian_RoadLiveCameras"/>
 <animation xlink:href="./liveCams/Manitoba/webcam.svg" x="-30000" y="-30000" width="60000" height="60000" title="Manitoba (Manitoba 511)" visibility="hidden" opacity="0.7" class="Canadian_RoadLiveCameras"/>
