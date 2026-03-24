@@ -65,5 +65,7 @@
 <animation xlink:href="./liveCams/Alberta/webcam.svg" x="-30000" y="-30000" width="60000" height="60000" title="Alberta (511 Alberta)" visibility="hidden" opacity="0.7" class="Canadian_RoadLiveCameras"/>
 <animation xlink:href="./liveCams/BritishColumbia/webcam.svg" x="-30000" y="-30000" width="60000" height="60000" title="British Columbia (Drive BC)" visibility="hidden" opacity="0.7" class="Canadian_RoadLiveCameras"/>
 
+<!-- Canadian trails / paths -->
+<animation xlink:href="./trails/nccPathTrails/NCCPathTrails.svg" x="-3000" y="-3000" width="6000" height="6000" title="NCC Path Data" visibility="hideen" class="Canadian_Trails clickable"/>
 
 </svg>
