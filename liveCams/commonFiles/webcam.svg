@@ -12,6 +12,12 @@
  <g id="p2" >
    <image xlink:href="./cameraFill3.png" preserveAspectRatio="none" x="-9" y="-9" width="18" height="18"/>
  </g>
+ <g id="p3" >
+   <image xlink:href="./cam0.png" preserveAspectRatio="none" x="-9" y="-9" width="18" height="18"/>
+ </g>
+ <g id="p4" >
+   <image xlink:href="./cam1.png" preserveAspectRatio="none" x="-9" y="-9" width="18" height="18"/>
+ </g>
 </defs>
 <g id="pois"></g>
 </svg>
