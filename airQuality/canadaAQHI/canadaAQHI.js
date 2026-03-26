@@ -85,8 +85,9 @@ function drawPoints(pointData, selectedTime) {
   svgImage.documentElement.setAttribute("property", schema);
   for (const feature of pointData.features) {
     if (feature.type === "Feature") {
-      if (feature.properties.observation_datetime !== selectedTime) continue;
-      if (feature.geometry) {
+      if (feature.properties.observation_datetime !== selectedTime
+        && currentTimeOffset !== 0) continue;
+      if (currentTimeOffset === 0 && !feature.properties.latest) continue; if (feature.geometry) {
         const meta = orderBySchema(feature.properties, schema);
         const lat = Number(feature.geometry.coordinates[1]);
         const lng = Number(feature.geometry.coordinates[0]);
