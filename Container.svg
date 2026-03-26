@@ -69,4 +69,6 @@
 <!-- Canadian trails / paths -->
 <animation xlink:href="./trails/nccPathTrails/NCCPathTrails.svg" x="-3000" y="-3000" width="6000" height="6000" title="NCC Path Data" visibility="hidden" class="Canadian_Trails clickable"/>
 
+<animation xlink:href="./airQuality/canadaAQHI/canadaAQHI.svg" x="-3000" y="-3000" width="6000" height="6000" title="AQHI Observations" visibility="hidden" class="Canada_AirQuality clickable"/>
+
 </svg>
