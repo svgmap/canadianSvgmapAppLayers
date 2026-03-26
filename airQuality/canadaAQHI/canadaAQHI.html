@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+
+<head>
+    <title>AQHI - Observations</title>
+    <meta charset="utf-8">
+    </meta>
+    <style>
+        #dateSlider {
+            width: 100%;
+        }
+
+        .sliderSection {
+            width: 100%;
+        }
+
+        .scaleImg {
+            max-width: 100%;
+        }
+    </style>
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="canadaAQHI.js"></script>
+
+<body>
+    <h1>AQHI - Observations</h1>
+    <section class="sliderSection">
+        <h2>Select Time:</h2>
+        <span id="timeOffsetDisplay">Current data</span>
+        <input type="range" min="0" max="24" value="24" class="slider" id="dateSlider" onchange="selectTime(this.value)">
+    </section>
+    <div id="messageDiv">
+        <p>AHQI Scale:</p>
+        <img class="scaleImg" src="https://weather.gc.ca/cacheable/images/img/aqhi_scale_small_en.png">
+        <p>Data Source: <a href="https://api.weather.gc.ca/collections/aqhi-observations-realtime?lang=en"
+                target="_blank">Environment and Climate Change Canada</a></p>
+    </div>
+</body>
+</html>
