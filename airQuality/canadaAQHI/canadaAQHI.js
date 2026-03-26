@@ -87,7 +87,7 @@ function drawPoints(pointData, selectedTime) {
     if (feature.type === "Feature") {
       if (feature.properties.observation_datetime !== selectedTime
         && currentTimeOffset !== 0) continue;
-      if (currentTimeOffset === 0 && !feature.properties.latest) continue; 
+      if (currentTimeOffset === 0 && !feature.properties.latest) continue;
       if (feature.geometry) {
         const meta = orderBySchema(feature.properties, schema);
         const lat = Number(feature.geometry.coordinates[1]);
