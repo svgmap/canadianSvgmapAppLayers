@@ -82,7 +82,6 @@ function drawPoints(pointData, selectedTime) {
   removeUses();
   if (pointData.type !== "FeatureCollection" || !pointData.features) return;
   const schema = buildSchema(pointData.features);
-  console.log('schema:', schema)
   svgImage.documentElement.setAttribute("property", schema);
   for (const feature of pointData.features) {
     if (feature.type === "Feature") {
