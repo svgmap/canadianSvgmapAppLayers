@@ -1,0 +1,251 @@
+<!doctype html>
+<html>
+<head>
+<title>Ontario Live Cam Layer</title>
+<meta charset="utf-8"></meta>
+</head>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script>
+// Description:
+//  EPSG 3978 canadian base map tile LaWA test 
+//
+// カナダ政府が公開する、lambertConformalConicCanada図法上での背景地図タイルピラミッドをsvgmapのレイヤーとして実装したもの
+//
+/*
+ * ==============================================================================
+ * 技術的トピックス：svgmapjsによる高度なWebGIS実装
+ * ==============================================================================
+ * 1. 任意の図法への対応と動的な図法変換（リプロジェクション）
+ 本コンテンツは、svgmapjsが持つ「任意の図法定義機能」と「異種図法間の動的変換機能」を活用し、
+ LaWA (Layer Window Architecture) として実装している。
+ * - 動的な図法変換: 一般的なWebマップはWebメルカトル図法に固定されるが、svgmapjsは任意の図法による
+ 描画をサポートする。これは特定の図法で描画できるだけでなく、異なる図法で構築された
+ 地図データ(レイヤー)を、表示用の図法へリアルタイムに変換して合成できることを意味する。
+ - 図法定義の分離: 表示用の図法は、レイヤーを束ねる「ルートコンテナ(最初に読み込まれるSVG文書)」で
+ 定義される。一方、個別レイヤーデータの図法は、そのレイヤー自身のSVG内で定義される。
+ - JSによる実装: 図法アルゴリズムはJavaScriptの関数として実装する。本レイヤーでは、script要素内で
+ 定義した `lambertConformalConicCanada` 関数を、`globalCoordinateSystem` 要素の `transform`
+ 属性に指定して導入している。
+ - 開発効率の向上: レイヤー内のSVG座標空間は、定義された図法(本例ではカナダ標準ランベルト正角円錐図法)
+ そのものとなる。開発者はタイリング制御を行う際、表示側の図法を意識せず、データ本来の座標系に
+ 基づいて直感的に記述できる。
+ - 補足: 今回実装したランベルト図法関数は、計算簡略化のため楕円体ではなく球体を想定しているが、
+ 本コンテンツの縮尺レベルにおいては実用上十分な精度を確保している。
+ 
+ * 2. 独自のタイリングスキームとLazy Loadingの実装
+ Webメルカトル図法に依存しない、独自のタイルピラミッド機構を構築している。
+ * - Lazy Loadingの活用: svgmapjsは、SVGの `image` 要素がビューポート内に
+ 入った際、初めてリソースを読み込む Lazy Loading(遅延読み込み) 機能をフレームワークレベルで
+ 提供している。本レイヤーのタイル読み込み機構はこの機能を活用して実装している。
+ - preRenderFunctionによる制御:
+ 本スクリプト内の `preRenderFunction` は、フレームワークが提供する予約済みの関数名である。
+ `window.onload` がページ読み込み完了時に実行されるように、この関数は「地図の描画(再描画)が
+ 実行される直前」に必ず呼び出されるよう定義されている。
+ このフックを利用して、現在の表示範囲や解像度に基づいた最適なタイル(Z/X/Y)の計算、および
+ DOMへのタイル要素の挿入・更新を行うことで、独自のタイリングスキームを実現している。
+ */
+
+// Description(ENGLISH):
+//  EPSG 3978 Canadian base map tile LaWA test 
+//
+// Implementation of the Canadian government's base map tile pyramid, 
+// which uses the Lambert Conformal Conic Canada projection, as an svgmap layer.
+//
+/*
+ * ==============================================================================
+ * Technical Topics: Advanced WebGIS Implementation using svgmapjs
+ * ==============================================================================
+ * 1. Support for Arbitrary Projections & Dynamic Reprojection
+ * This content leverages svgmapjs's "arbitrary projection definition" and 
+ * "dynamic cross-projection transformation" features, implemented as a LaWA 
+ * (Layer Window Architecture).
+ *
+ * - Dynamic Reprojection: While standard web maps are locked to Web Mercator, svgmapjs 
+ * supports rendering in arbitrary projections. This means it can not only render in a specific 
+ * projection, but also reproject and composite map data (layers) built in different 
+ * projections into the display projection in real-time.
+ * - Separation of Projection Definitions: The display projection is defined in the "root container" 
+ * (the initial SVG document loaded that bundles the layers). Conversely, the native projection 
+ * of individual layer data is defined within the layer's own SVG.
+ * - JS Implementation: Projection algorithms are implemented as JavaScript functions. In this layer, 
+ * the `lambertConformalConicCanada` function defined in the script element is introduced by 
+ * assigning it to the `transform` attribute of the `globalCoordinateSystem` element.
+ * - Improved Development Efficiency: The SVG coordinate space within the layer becomes the defined 
+ * projection itself (in this case, the Canadian standard Lambert Conformal Conic). When writing 
+ * tiling logic, developers can code intuitively based on the data's native coordinate system 
+ * without worrying about the final display projection.
+ * - Note: The Lambert projection function implemented here assumes a spherical Earth rather than an 
+ * ellipsoid to simplify calculations. However, it ensures sufficient practical accuracy at the 
+ * scale levels used in this content.
+ *
+ * * 2. Implementation of Custom Tiling Schemes and Lazy Loading
+ * A unique tile pyramid mechanism, independent of Web Mercator, is constructed here.
+ *
+ * - Utilizing Lazy Loading: svgmapjs provides a framework-level lazy loading feature where SVG `<image>` 
+ * elements  are only loaded when they enter the viewport. 
+ * The tile loading mechanism of this layer leverages this feature.
+ * - Control via preRenderFunction:
+ * The `preRenderFunction` in this script is a reserved function name provided by the framework.
+ * Just as `window.onload` triggers upon page load completion, this function is guaranteed to be 
+ * called "immediately before a map render (or re-render)".
+ * By using this hook, we calculate the optimal tiles (Z/X/Y) based on the current display extent 
+ * and resolution, and then insert/update the tile elements in the DOM, thereby achieving a 
+ * custom tiling scheme.
+ */
+//
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// History
+// 2026/04/23 rev1
+//
+
+
+
+const baseUrlTemplate = "https://weather.gc.ca/api/map/basemaps/wmts/cbmt_cbct_geom_3978/nrcan_3978_grid/{z}/{x}/{y}.png";
+
+/**
+addEventListener("zoomPanMap",function(){
+});
+**/
+
+/**
+ * svgmapjs のレンダリングサイクルから呼び出されるメイン描画関数
+ * @param {Object} svgDocStatus - 現在のSVGドキュメントの状態（ビューボックスやスケール等）
+ */
+function preRenderFunction(svgDocStatus) {
+	console.log("preRenderFunction svgDocStatus.actualViewBox:", svgDocStatus.actualViewBox);
+	if (!svgDocStatus || !svgDocStatus.actualViewBox) return;
+
+	// --- 1. SVGの内部座標(actualViewBox)を EPSG:3978 のメートルに変換 ---
+	const R = 6378137; // GRS80 (NAD83) 楕円体に基づく地球の半径(m)
+	const deg2rad = Math.PI / 180;
+	const svgToMeters = deg2rad * R; // svgmapjs内部の球面座標からメートルへの変換係数
+	
+	const box = svgDocStatus.actualViewBox;
+
+	// SVGはUI表示用でY軸が反転(-res.y)されているため、元に戻してメートル空間へマッピングする
+	const viewMinX = box.x * svgToMeters;
+	const viewMaxY = -(box.y) * svgToMeters; // Top
+	const viewWidth = box.width * svgToMeters;
+	const viewHeight = box.height * svgToMeters;
+
+	const viewMaxX = viewMinX + viewWidth;
+	const viewMinY = viewMaxY - viewHeight; // Bottom
+
+	// --- 2. カナダ政府 WMTS タイルグリッド (nrcan_3978_grid) の仕様定義 ---
+	// 出典: カナダ気象庁 WMTS Capabilities XML 
+	// (https://weather.gc.ca/api/map/basemaps/wmts/cbmt_cbct_geom_3978/WMTSCapabilities.xml)
+	// XML内の <TopLeftCorner> に定義されているEPSG:3978空間のタイル原点座標
+	const tileOriginX = -34655800; 
+	const tileOriginY = 39310000;  
+	const tileSize = 256;
+
+	// --- カナダ気象庁独自の「ズームレベルごとの解像度(m/px)配列」 ---
+	// 【算出ロジック】
+	// XML内の各ズームレベルにおける ScaleDenominator（縮尺分母）に対し、
+	// WMTS標準の1ピクセルあたりの物理長 (0.28mm = 0.00028メートル/px) を乗じて算出。
+	// 例: Z=0 の ScaleDenominator (137016643.0809052) * 0.00028 = 38364.66006265346 m/px
+	const resolutions = [
+		38364.66006265346,  // Z=0
+		22489.628312589966, // Z=1
+		13229.193125052919, // Z=2
+		7937.515875031752,  // Z=3
+		4630.217593768522,  // Z=4
+		2645.838625010584,  // Z=5 
+		1587.5031750063503, // Z=6
+		926.0435187537044,  // Z=7
+		529.1677250021168,  // Z=8
+		317.5006350012701,  // Z=9
+		185.20870375074088, // Z=10
+		111.12522225044452, // Z=11
+		66.1459656252646,   // Z=12
+		38.36466006265346,  // Z=13
+		22.489628312589962, // Z=14
+		13.22919312505292,  // Z=15
+		7.937515875031751,  // Z=16
+		4.630217593768522   // Z=17
+	];
+	
+	// --- 3. 最適なズームレベル (Z) の計算 ---
+	const screenWidthPx = 1024; // この値はとりあえずの決め打ち(svgDocStatus.scaleを用いればより好ましい実装が可能)
+	const currentViewResolution = viewWidth / screenWidthPx; 
+
+	// 配列の中から、現在の画面解像度に最も近いZレベルを探す
+	let z = 0;
+	for (let i = 0; i < resolutions.length; i++) {
+		if (resolutions[i] < currentViewResolution) {
+			z = i > 0 ? i - 1 : 0;
+			break;
+		}
+		z = i;
+	}
+
+	// 決定したZレベルにおける、タイル1枚の実際の幅（メートル）
+	const tileMeters = tileSize * resolutions[z];
+
+	// --- 4. 画面を覆うタイルの X, Y インデックス範囲を計算 ---
+	const minTileX = Math.floor((viewMinX - tileOriginX) / tileMeters);
+	const maxTileX = Math.floor((viewMaxX - tileOriginX) / tileMeters);
+
+	// Y軸は下に向かってインデックスが増えるため、Origin - View の差分を取る
+	const minTileY = Math.floor((tileOriginY - viewMaxY) / tileMeters);
+	const maxTileY = Math.floor((tileOriginY - viewMinY) / tileMeters);
+
+	// --- 5. タイルURLの生成と描画（DOM追加処理へ） ---
+	console.log(`Target Z: ${z}, X: ${minTileX}~${maxTileX}, Y: ${minTileY}~${maxTileY}`);
+
+	// svgImageはこのLaWAの持つレイヤーSVGドキュメント(地図のキャンバス)
+	const tileLayer = svgImage.getElementById('tileLayer');
+	// ちょっと雑だが伸縮スクロールの度にすべての配置されたタイルをいったん全部消して再度必要なタイルを構築する
+	removeChildren(tileLayer);
+
+	// 画面内に含まれるすべてのタイルについて <image> 要素を生成
+	for (let x = minTileX; x <= maxTileX; x++) {
+		for (let y = minTileY; y <= maxTileY; y++) {
+			// カナダ政府のWMTSへアクセスするURL
+			const url = baseUrlTemplate
+				.replace('{z}', z)
+				.replace('{x}', x)
+				.replace('{y}', y);
+
+
+			// このタイルの左上座標(SVG空間へ戻す)とサイズを計算して <image> を配置
+			const drawMetersX = tileOriginX + (x * tileMeters);
+			const drawMetersY = tileOriginY - (y * tileMeters);
+
+			const drawSvgX = drawMetersX / svgToMeters;
+			const drawSvgY = -drawMetersY / svgToMeters; // Y軸反転
+			const drawSvgWidth = tileMeters / svgToMeters;
+
+			// svgImage (LaWAが提供する自身のSVGドキュメントオブジェクト) を使って要素を生成
+			// この時点ではブラウザに配置されるだけで、画像のロードはsvgmapjsのLazy Loading機構に委ねられる
+			var img= svgImage.createElement("image");
+			img.setAttribute("x",drawSvgX);
+			img.setAttribute("y",drawSvgY);
+			img.setAttribute("width",drawSvgWidth);
+			img.setAttribute("height",drawSvgWidth);
+			img.setAttribute("preserveAspectRatio","none");
+			img.setAttribute("xlink:href",url);
+			tileLayer.appendChild(img);
+		}
+	}
+}
+
+function removeChildren(ele){
+	while( ele.firstChild ){
+		ele.removeChild( ele.firstChild );
+	}
+}
+
+</script>
+
+<body>
+	<h4>Canadian Lambert Base Map Tile</h4>
+	<div style="font-size:11px">Reference: <a href="https://weather.gc.ca/index_e.html" target="_blank">Government of Canada : Weather Information</a></div>
+	<div id="msgDiv"></div>
+</body>
+</html>

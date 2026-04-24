@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg  xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:go="http://purl.org/svgmap/profile" viewBox="global,-110,40,30,30" data-controller="radar.html#exec=appearOnLayerLoad&amp;requiredHeight=280" >
+
+<script>
+// カナダ標準 ランベルト正角円錐図法
+function lambertConformalConicCanada(options = {}) {
+	// =========================
+	// 設定と事前計算
+	// =========================
+	const deg2rad = Math.PI / 180;
+	const rad2deg = 180 / Math.PI;
+
+	const lat1 = (options.lat1 ?? 49) * deg2rad;
+	const lat2 = (options.lat2 ?? 77) * deg2rad;
+	const lat0 = (options.lat0 ?? 49) * deg2rad;
+	const lng0 = (options.lng0 ?? -95) * deg2rad;
+
+	const EPS = 1e-10;
+
+	const n = Math.log(Math.cos(lat1) / Math.cos(lat2)) /
+			  Math.log(Math.tan(Math.PI / 4 + lat2 / 2) / Math.tan(Math.PI / 4 + lat1 / 2));
+	const F = (Math.cos(lat1) * Math.pow(Math.tan(Math.PI / 4 + lat1 / 2), n)) / n;
+	const rho0 = F / Math.pow(Math.tan(Math.PI / 4 + lat0 / 2), n);
+
+	// =========================
+	// 内部関数（純数学）
+	// =========================
+	function forward(lat, lng) {
+		let rho = 0;
+		// 北極点でのゼロ割り・無限大発散を回避
+		if (Math.abs(Math.PI / 2 - lat) > EPS) {
+			rho = F / Math.pow(Math.tan(Math.PI / 4 + lat / 2), n);
+		}
+		
+		const theta = n * (lng - lng0);
+		const x = rho * Math.sin(theta);
+		const y = rho0 - rho * Math.cos(theta);
+		
+		if (!isFinite(x) || !isFinite(y)) return null;
+		return { x, y };
+	}
+
+	function inverse(x, y) {
+		const rho = Math.sqrt(x * x + (rho0 - y) * (rho0 - y));
+		
+		// 極点の処理
+		if (rho < EPS) {
+			return { lat: Math.PI / 2, lng: lng0 };
+		}
+		
+		// GPTの知恵: Math.atan2 を使って角度を安全に取得
+		const theta = Math.atan2(x, rho0 - y);
+		const lat = 2 * Math.atan(Math.pow(F / rho, 1 / n)) - Math.PI / 2;
+		let lng = lng0 + theta / n;
+		
+		// 経度の正規化 [-π, π]
+		if (lng > Math.PI) lng -= 2 * Math.PI;
+		if (lng < -Math.PI) lng += 2 * Math.PI;
+		
+		return { lat, lng };
+	}
+
+	// =========================
+	// 外部API (svgmap.js の仕様に厳密に準拠)
+	// =========================
+	return {
+		transform(inp) {
+			// inp は {x: 経度, y: 緯度} で渡ってくる
+			const res = forward(inp.y * deg2rad, inp.x * deg2rad);
+			if (!res) return null;
+
+			return {
+				x: res.x * rad2deg,
+				y: -res.y * rad2deg // UI用にY軸を反転
+			};
+		},
+
+		inverse(inp) {
+			// inp は {x: 描画X, y: 描画Y} で渡ってくる
+			const res = inverse(inp.x * deg2rad, -inp.y * deg2rad);
+			if (!res) return null;
+
+			return {
+				x: res.lng * rad2deg, // svgmapjsはxに経度を期待する
+				y: res.lat * rad2deg  // yに緯度を期待する
+			};
+		},
+
+		scale: 1.0
+	};
+}
+
+/**
+onzoom = function(){
+	console.log("onzoom: zoomscrollfunc webTile onzoom:geoViewBox:", this.geoViewBox , geoViewBox , this.scale , scale, this.CRS ,CRS,"  actualViewBox:",this.actualViewBox,actualViewBox,"   document:",document," this:",this);
+//	console.log("actualViewBox:",this.actualViewBox, "  geoViewBox:",geoViewBox,"   this:",this);
+}
+**/
+</script>
+
+<globalCoordinateSystem srsName="http://purl.org/crs/84" transform="lambertConformalConicCanada" />
+
+<g id="tileLayer"></g>
+
+</svg>

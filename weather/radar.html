@@ -1,0 +1,228 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Canada Weather Radar Viewer (EPSG:3978)</title>
+    <style>
+        body { margin: 0; font-family: sans-serif; background: #eee; }
+        #control-panel {
+            position: absolute;
+            left: 10px;
+            width: 320px;
+            z-index: 1000;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            border: 1px solid #ccc;
+        }
+        .time-label { font-size: 14px; font-weight: bold; margin-bottom: 10px; display: block; }
+        .utc-time { color: #d9534f; font-family: monospace; font-size: 16px; }
+        .slider-container { margin-top: 10px; }
+        input[type=range] { width: 100%; cursor: pointer; }
+        .slider-axis { display: flex; justify-content: space-between; font-size: 11px; color: #666; margin-top: 5px; }
+        #msgDiv { padding: 10px; font-size: 12px; color: #333; }
+    </style>
+</head>
+
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+
+<script>
+// Description:
+// カナダ政府の気象レーダー情報のレイヤー
+//
+// カナダ政府が公開する、lambertConformalConicCanada図法上での気象レーダーデータの地図タイルピラミッドをsvgmapのLaWAとして実装したもの
+//
+// 詳細な技術解説は、basemap.htmlのコメントを参照してください。
+//
+// Description (en):
+// Environment and Climate Change Canada (ECCC) Weather Radar (Precipitation Data) Layer
+//
+// This is an implementation of a map tile pyramid of weather radar data 
+// in the Lambert Conformal Conic Canada projection, provided by the Government of Canada, 
+// as an svgmap LaWA (Layered Web Architecture).
+//
+// For detailed technical documentation, please refer to the comments in basemap.html.
+//
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// History
+// 2026/04/23 rev1
+
+/**
+ * ------------------------------------------------------------
+ * 1. 共通設定と時刻管理
+ * ------------------------------------------------------------
+ */
+const radarUrlTemplate = "https://weather.gc.ca/api/map/radar.3978/wmts/RADAR_1KM_RRAI_14_{time}_512/wxo_3978_grid_512/{z}/{x}/{y}.png";
+
+/**
+ * スライダーの値からカナダ気象庁の配信仕様に合わせた時刻データを計算する
+ * (仕様: データ反映までの約15分ラグを考慮 + 6分刻みのタイムスタンプ)
+ */
+function getRadarTimeData(stepOffset) {
+	const now = new Date();
+	const baseLag = 15; 
+	const offsetMinutes = Math.abs(stepOffset) * 6;
+	const targetDate = new Date(now.getTime() - ((baseLag + offsetMinutes) * 60 * 1000));
+
+	const roundedMinutes = Math.floor(targetDate.getUTCMinutes() / 6) * 6;
+	targetDate.setUTCMinutes(roundedMinutes);
+	targetDate.setUTCSeconds(0);
+
+	const yyyy = targetDate.getUTCFullYear();
+	const mm = String(targetDate.getUTCMonth() + 1).padStart(2, '0');
+	const dd = String(targetDate.getUTCDate()).padStart(2, '0');
+	const hh = String(targetDate.getUTCHours()).padStart(2, '0');
+	const mi = String(roundedMinutes).padStart(2, '0');
+
+	return {
+		urlTime: `${yyyy}-${mm}-${dd}T${hh}-${mi}-00Z`,
+		utcDisplay: `${hh}:${mi} UTC`
+	};
+}
+
+/**
+ * ------------------------------------------------------------
+ * 2. UI操作イベント
+ * ------------------------------------------------------------
+ */
+
+// スライダーをドラッグ中：サーバーへリクエストは飛ばさず、UIの文字(時刻)のみを更新する
+function updateTimeLabelOnly() {
+    const slider = document.getElementById('timeSlider');
+    const stepOffset = parseInt(slider.value);
+    const timeData = getRadarTimeData(stepOffset);
+    const label = (stepOffset === 0) ? "latest" : `${Math.abs(stepOffset * 6)}minutes ago`;
+    document.getElementById('timeDisplay').innerText = timeData.utcDisplay;
+    document.getElementById('offsetLabel').innerText = ` (${label})`;
+}
+
+// ドロップ時：実際の再描画をトリガー
+function triggerMapRefresh() {
+    const tileLayer = svgImage.getElementById('tileLayer');
+    if (tileLayer) {
+        while (tileLayer.firstChild) { tileLayer.removeChild(tileLayer.firstChild); }
+    }
+    if (window.svgMap && svgMap.refreshScreen) {
+        svgMap.refreshScreen();
+    }
+}
+
+/**
+ * ------------------------------------------------------------
+ * 3. 描画ロジック (svgmapjs preRenderFunction)
+ * ------------------------------------------------------------
+ */
+function preRenderFunction(svgDocStatus) {
+	if (!svgDocStatus || !svgDocStatus.actualViewBox) return;
+
+	// 初期起動時などのためにラベルを更新
+	updateTimeLabelOnly();
+
+	const slider = document.getElementById('timeSlider');
+	const stepOffset = slider ? parseInt(slider.value) : 0;
+	const timeData = getRadarTimeData(stepOffset);
+
+	// 座標計算定数
+	const R = 6378137; 
+	const deg2rad = Math.PI / 180;
+	const svgToMeters = deg2rad * R;
+
+	// actualViewBoxはフレームワークが提供する[このSVG文書の座標系]におけるビューボックス
+	const box = svgDocStatus.actualViewBox;
+	const viewMinX = box.x * svgToMeters;
+	const viewMaxY = -(box.y) * svgToMeters; 
+	const viewWidth = box.width * svgToMeters;
+	const viewHeight = box.height * svgToMeters;
+
+	// --- カナダ気象庁レーダー専用グリッド (wxo_3978_grid_512) の定義 ---
+	// 出典: レーダー用WMTS Capabilities XML 
+	// (https://weather.gc.ca/api/map/radar.3978/wmts/1.0.0/WMTSCapabilities.xml)
+	// 背景地図とは異なる、レーダー専用にクロップされた原点座標 (XMLの <TopLeftCorner> 要素より)
+	const tileOriginX = -7959420.0; 
+	const tileOriginY = 4646500.0;  
+	const tileSize = 512; 
+
+	// XML内の各ズームレベルにおける ScaleDenominator（縮尺分母）に対し、
+	const scaleDenominators = [
+		137016643.0809052, 80320101.1163927, 47247118.30376042, 28348270.98225625,
+		16536491.406316146, 9449423.660752084, 5669654.1964512495, 3307298.281263229,
+		1889884.7321504168, 1133930.83929025, 661459.6562526459, 396875.7937515875,
+		236235.5915188021
+	];
+	const resolutions = scaleDenominators.map(scale => scale * 0.00028);
+
+	// ズームレベル判定
+	let z = 0;
+	const currentViewResolution = viewWidth / 1024; 
+	for (let i = 0; i < resolutions.length; i++) {
+		if (resolutions[i] < currentViewResolution) {
+			z = i > 0 ? i - 1 : 0;
+			break;
+		}
+		z = i;
+	}
+
+	const tileMeters = tileSize * resolutions[z];
+	const minTileX = Math.floor((viewMinX - tileOriginX) / tileMeters);
+	const maxTileX = Math.floor((viewMinX + viewWidth - tileOriginX) / tileMeters);
+	const minTileY = Math.floor((tileOriginY - viewMaxY) / tileMeters);
+	const maxTileY = Math.floor((tileOriginY - (viewMaxY - viewHeight)) / tileMeters);
+
+	const tileLayer = svgImage.getElementById('tileLayer');
+	while (tileLayer.firstChild) { tileLayer.removeChild(tileLayer.firstChild); }
+
+	const zPad = String(z).padStart(2, '0');
+
+	for (let x = minTileX; x <= maxTileX; x++) {
+		for (let y = minTileY; y <= maxTileY; y++) {
+			if (x < 0 || y < 0) continue;
+
+			const url = radarUrlTemplate
+				.replace('{time}', timeData.urlTime)
+				.replace('{z}', zPad)
+				.replace('{x}', x)
+				.replace('{y}', y);
+
+			const drawSvgX = (tileOriginX + (x * tileMeters)) / svgToMeters;
+			const drawSvgY = -(tileOriginY - (y * tileMeters)) / svgToMeters;
+			const drawSvgWidth = tileMeters / svgToMeters;
+
+			var img = svgImage.createElement("image");
+			img.setAttribute("x", drawSvgX);
+			img.setAttribute("y", drawSvgY);
+			img.setAttribute("width", drawSvgWidth);
+			img.setAttribute("height", drawSvgWidth);
+			img.setAttribute("preserveAspectRatio", "none");
+			img.setAttribute("xlink:href", url);
+			img.onerror = function() { this.style.display = 'none'; };
+			tileLayer.appendChild(img);
+		}
+	}
+}
+</script>
+
+<body>
+<h4>Canada Weather Radar</h4>
+<div style="font-size:11px">Reference: <a href="https://weather.gc.ca/index_e.html?layers=,radar," target="_blank">Government of Canada : Weather Information</a></div>
+<br>
+    <div id="control-panel">
+        <span class="time-label">Radar Time: <span id="timeDisplay" class="utc-time">--:-- UTC</span><span id="offsetLabel" style="font-size: 12px; color: #666;"> (最新)</span></span>
+        
+        <div class="slider-container">
+            <input type="range" id="timeSlider" min="-20" max="0" value="0" step="1" 
+                   oninput="updateTimeLabelOnly()" onchange="triggerMapRefresh()">
+            <div class="slider-axis">
+                <span>2hrs ago</span>
+                <span>latest</span>
+            </div>
+        </div>
+
+        <div id="msgDiv"></div>
+    </div>
+</body>
+</html>
