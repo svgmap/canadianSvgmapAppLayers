@@ -1,0 +1,150 @@
+<!doctype html>
+<html>
+
+<head>
+    <title>Canada Basemap - Elevation (CBME)</title>
+    <meta charset="utf-8">
+    </meta>
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script>
+    const baseUrl = "https://maps-cartes.services.geo.ca/server2_serveur2/rest/services/BaseMaps/CBME_CBCE_HS_RO_3978/MapServer"
+
+    let renderLayerId = undefined;
+    let renderLayer = undefined;
+    let apiParams = undefined;
+
+    // Map blend mode
+    const blendModeMap = new Map([
+        ["normal", true],
+        ["multiply", true],
+        ["darken", true],
+        ["color-burn", true],
+    ])
+
+    let currBlendMode = "normal"; // Current blend mode
+
+    const setBlendMode = (blendMode) => {
+        if (!blendModeMap.has(blendMode)) return;
+        if (!renderLayer) return;
+        currBlendMode = blendMode;
+        renderLayer.style.mixBlendMode = currBlendMode;
+    }
+
+    addEventListener("DOMContentLoaded", () => {
+        const blendModeSelector = document.getElementById("blendModeSelector");
+        for (const blendMode of blendModeMap.keys()) {
+            const newOption = document.createElement("option");
+            newOption.value = blendMode;
+            newOption.text = blendMode;
+            blendModeSelector.appendChild(newOption);
+        }
+    })
+
+    function preRenderFunction(svgDocStatus) {
+        if (!svgDocStatus || !svgDocStatus.actualViewBox) return;
+        const box = svgDocStatus.actualViewBox;
+        getElevationMap(box);
+    }
+
+    const fetchParams = async (url) => {
+        try {
+            const res = await fetch(`${url}?f=pjson`);
+            const body = JSON.parse(await res.text());
+            return body;
+        } catch (error) {
+            console.error(`Error fetching API parameters: ${error}`);
+        }
+        return undefined;
+    }
+
+
+    const buildTileQuery = (x, y, z) => {
+        const url = `${baseUrl}/tile/${z}/${y}/${x}`
+        return url;
+    }
+
+    const getElevationMap = async (box) => {
+        if (!apiParams) apiParams = await fetchParams(baseUrl);
+
+        const R = 6378137;
+        const deg2rad = Math.PI / 180;
+        const svgToMeters = deg2rad * R;
+
+        const viewMinX = box.x * svgToMeters;
+        const viewMaxY = -(box.y) * svgToMeters;
+        const viewWidth = box.width * svgToMeters;
+        const viewHeight = box.height * svgToMeters;
+
+        const viewMaxX = viewMinX + viewWidth;
+        const viewMinY = viewMaxY - viewHeight; // Bottom
+
+        const tileOriginX = apiParams.tileInfo.origin.x;
+        const tileOriginY = apiParams.tileInfo.origin.y;
+        const tileSize = apiParams.tileInfo.rows;
+
+        let z = 0;
+        const screenWidthPx = 1024;
+        const currentViewResolution = viewWidth / screenWidthPx;
+
+        for (let i = 0; i < apiParams.tileInfo.lods.length; i++) {
+            if (apiParams.tileInfo.lods[i].resolution < currentViewResolution) {
+                z = i > 0 ? i : 0;
+                break;
+            }
+            z = i;
+        }
+
+        const tileMeters = tileSize * apiParams.tileInfo.lods[z].resolution;
+        const minTileX = Math.floor((viewMinX - tileOriginX) / tileMeters);
+        const maxTileX = Math.floor((viewMaxX - tileOriginX) / tileMeters);
+        const minTileY = Math.floor((tileOriginY - viewMaxY) / tileMeters);
+        const maxTileY = Math.floor((tileOriginY - viewMinY) / tileMeters);
+
+        const tileLayer = svgImage.getElementById('tileLayer');
+        while (tileLayer.firstChild) { tileLayer.removeChild(tileLayer.firstChild); }
+
+        for (let x = minTileX; x <= maxTileX; x++) {
+            for (let y = minTileY; y <= maxTileY; y++) {
+                if (x < 0 || y < 0) continue;
+                const url = buildTileQuery(x, y, z);
+                const drawMetersX = tileOriginX + (x * tileMeters);
+                const drawMetersY = tileOriginY - (y * tileMeters);
+
+                const drawSvgX = drawMetersX / svgToMeters;
+                const drawSvgY = -drawMetersY / svgToMeters; // Y軸反転
+                const drawSvgWidth = tileMeters / svgToMeters;
+                const img = svgImage.createElement("image");
+                img.setAttribute("x", drawSvgX);
+                img.setAttribute("y", drawSvgY);
+                img.setAttribute("width", drawSvgWidth);
+                img.setAttribute("height", drawSvgWidth);
+                img.setAttribute("preserveAspectRatio", "none");
+                img.setAttribute("xlink:href", url);
+                img.onerror = function() { this.style.display = 'none'; };
+                tileLayer.appendChild(img);
+            }
+        }
+
+
+        if (svgImageProps.rootLayer !== renderLayerId || !renderLayer) {
+            const renderCanvas = svgMap.getMapCanvas()
+            renderLayerId = svgImageProps.rootLayer;
+            for (const child of renderCanvas.childNodes) {
+                if (child.id === svgImageProps.rootLayer) renderLayer = child;
+            }
+        }
+    }
+</script>
+
+<body>
+    <h1>Canada Basemap - Elevation (CBME)</h1>
+    <h2>Overlay blend mode:</h2>
+    <label for="blendMode">Select a blend mode:</label>
+    <select name="blendMode" id="blendModeSelector" onchange="setBlendMode(this.value)">
+    </select>
+    <p>Source: <a href="https://open.canada.ca/data/en/dataset/974944d2-14cb-41c8-ba57-936282d5a227">Natural Resources
+            Canada</a></p>
+</body>
+
+</html>
