@@ -1,0 +1,178 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="UTF-8" />
+		<title>Calgary Traffic Camera Layer</title>
+	</head>
+	<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+	<script>
+		// Description:
+		//	Calgary Traffic Cams Layer
+		//
+		// License: (MPL v2)
+		// This Source Code Form is subject to the terms of the Mozilla Public
+		// License, v. 2.0. If a copy of the MPL was not distributed with this
+		// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+		// Configuration: City of Calgary Open Data GeoJSON Endpoint
+		const geojsonUrl = "https://data.calgary.ca/resource/k7p9-kppz.geojson";
+
+		onload = async function () {
+			try {
+				const response = await fetch(svgMap.getCORSURL(geojsonUrl));
+				let gjs = await response.json();
+
+				if (!gjs.features || gjs.features.length === 0) {
+					throw new Error("No features found in GeoJSON");
+				}
+
+				// Data touch-up: Flatten nested objects and auto-generate titles
+				gjs = touchUpGeoJSON(gjs);
+
+				// Automatically extract schema from the first feature
+				const metaDict = Object.keys(gjs.features[0].properties);
+				console.log("Calgary Schema:", metaDict);
+
+				svgMap.setShowPoiProperty(showCalgaryProperty, layerID);
+				svgImage.documentElement.setAttribute("property", metaDict.join(","));
+
+				// Plotting Calgary cams in darkorange
+				svgMapGIStool.drawGeoJson(
+					gjs,
+					layerID,
+					"darkorange",
+					2,
+					"white",
+					"p4",
+					"title",
+					null,
+					null,
+					metaDict,
+				);
+				svgMap.refreshScreen();
+			} catch (e) {
+				console.error("Layer Load Error:", e);
+			}
+		};
+
+		/**
+		 * GeoJSON Data Touch-up Function
+		 * Flattens Calgary-specific nested objects and sets the title property
+		 */
+		function touchUpGeoJSON(gjs) {
+			gjs.features.forEach((f) => {
+				const props = f.properties;
+
+				// 1. Flatten nested objects (Avoids [object Object] display)
+				if (
+					props.camera_url &&
+					typeof props.camera_url === "object" &&
+					props.camera_url.url
+				) {
+					props.image_url = props.camera_url.url; // Extract image URL as string
+					delete props.camera_url; 
+				}
+
+				// 2. Set title property (Uses camera_location for Calgary)
+				if (!props.title) {
+					props.title = props.camera_location || "Calgary Traffic Cam";
+				}
+			});
+			return gjs;
+		}
+
+		/**
+		 * Popup display on click
+		 */
+		async function showCalgaryProperty(target) {
+			const metaSchema = svgImage.documentElement
+				.getAttribute("property")
+				.split(",");
+			const metaData = svgMap.parseEscapedCsvLine(
+				target.getAttribute("content"),
+			);
+			const ts = new Date().getTime();
+
+			const getData = (key) => metaData[metaSchema.indexOf(key)];
+			const camName = getData("title") || "Traffic Camera";
+
+			let imageRows = "";
+			let urlRows = "";
+			let textRows = "";
+
+			const thStyle =
+				"background:#ffebd6; padding:6px; font-weight:bold; word-break:keep-all;";
+			const tdStyle = "padding:6px; word-break:break-all;";
+
+			// Keys to exclude from the detail table
+			const ignoreKeys = ["title", "camera_location"];
+
+			metaData.forEach((itm, idx) => {
+				const key = metaSchema[idx];
+				if (!itm || itm === "null" || ignoreKeys.includes(key)) return;
+
+				const isUrl = typeof itm === "string" && itm.startsWith("http");
+				const isImage = isUrl && itm.match(/\.(jpeg|jpg|gif|png|bmp|webp)$/i);
+
+				if (isImage) {
+					// Auto-convert HTTP to HTTPS (Prevents mixed content warnings)
+					const secureUrl = itm.replace(/^http:\/\//i, "https://");
+					imageRows += `
+                        <tr>
+                            <td colspan="2" style="padding:0; background:#000; text-align:center;">
+                                <a target="_blank" href="${secureUrl}">
+                                    <img src="${(secureUrl)}?t=${ts}" width="100%" style="display:block;" >
+                                </a>
+                            </td>
+                        </tr>`;
+				} else if (isUrl) {
+					const secureUrl = itm.replace(/^http:\/\//i, "https://");
+					urlRows += `
+                        <tr>
+                            <td style="${thStyle}">${key}</td>
+                            <td style="${tdStyle}">
+                                <a href="${secureUrl}" target="_blank" style="color:darkorange;">${secureUrl}</a>
+                            </td>
+                        </tr>`;
+				} else {
+					textRows += `
+                        <tr>
+                            <td style="${thStyle}">${key}</td>
+                            <td style="${tdStyle}">${itm}</td>
+                        </tr>`;
+				}
+			});
+
+			const message = `
+                <div style="font-family:sans-serif;">
+                    <div style="font-size:16px; font-weight:bold; color:darkorange; margin-bottom:10px; border-bottom:3px solid darkorange; padding-bottom:5px;">
+                        ${camName}
+                    </div>
+                    <table border='1' style='font-size:11px; width:100%; border-collapse:collapse; border:solid darkorange;'>
+                        <colgroup>
+                            <col style="width: 30%;">
+                            <col style="width: 70%;">
+                        </colgroup>
+                        ${imageRows}
+                        ${urlRows}
+                        ${textRows}
+                    </table>
+                    
+                    <div style="font-size:10px; margin-top:10px; color:#666; border-top:1px dashed #ccc; padding-top:5px;">
+                        Source: <a href="https://data.calgary.ca/Transportation-Transit/Traffic-Cameras/k7p9-kppz" target="_blank" style="color:darkorange;">City of Calgary Open Data</a>
+                    </div>
+                </div>`;
+
+			svgMap.showModal(message, 450, 480);
+		}
+	</script>
+	<body>
+		<h4>Calgary Traffic Cams Layer</h4>
+		<p style="font-size: 12px">
+			Source:
+			<a href="https://data.calgary.ca/" target="_blank"
+				>City of Calgary Open Data</a
+			>
+		</p>
+	</body>
+</html>

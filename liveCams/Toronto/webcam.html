@@ -1,0 +1,216 @@
+<!doctype html>
+<html
+	property="title,mainroad,crossroad,imageurl,refurl1,direction1,refurl2,direction2,refurl3,direction3,refurl4,direction4"
+>
+	<head>
+		<meta charset="UTF-8" />
+		<title>Toronto Traffic Cameras (LaWA Layer)</title>
+	</head>
+	<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+	<script>
+		// Description:
+		//	Toronto City Live Cam Layer
+		//
+		// License: (MPL v2)
+		// This Source Code Form is subject to the terms of the Mozilla Public
+		// License, v. 2.0. If a copy of the MPL was not distributed with this
+		// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+		
+		// Configuration: Toronto City CKAN GeoJSON Endpoint
+		const cameraListUrl =
+			"https://ckan0.cf.opendata.inter.prod-toronto.ca/dataset/a3309088-5fd4-4d34-8297-77c8301840ac/resource/4a568300-c7f8-496d-b150-dff6f5dc6d4f/download/traffic-camera-list-4326.geojson";
+
+		onload = async function () {
+			try {
+				// Fetch data directly from Toronto CKAN
+				const response = await fetch(svgMap.getCORSURL(cameraListUrl));
+				const rawData = await response.json();
+
+				// Flatten MultiPoint and organize properties
+				const gjs = normalizeTorontoGeoJSON(rawData);
+
+				// Define metadata schema according to property attribute
+				const metaDict = [
+					"title",
+					"mainroad",
+					"crossroad",
+					"imageurl",
+					"refurl1",
+					"direction1",
+					"refurl2",
+					"direction2",
+					"refurl3",
+					"direction3",
+					"refurl4",
+					"direction4",
+				];
+
+				const targetLayerID =
+					typeof layerID !== "undefined" ? layerID : "toronto_cam_layer";
+				svgMap.setShowPoiProperty(showTorontoProperty, targetLayerID);
+				document.documentElement.setAttribute("property", metaDict.join(","));
+
+				// Plot Toronto cams in darkred
+				svgMapGIStool.drawGeoJson(
+					gjs,
+					targetLayerID,
+					"darkred",
+					2,
+					"white",
+					"p4",
+					"title",
+					null,
+					null,
+					metaDict,
+				);
+				svgMap.refreshScreen();
+			} catch (e) {
+				console.error("Toronto Layer Load Error:", e);
+			}
+		};
+
+		/**
+		 * Optimize Toronto GeoJSON for svgmap.js
+		 */
+		function normalizeTorontoGeoJSON(rawData) {
+			const features = rawData.features.map((f) => {
+				const p = f.properties;
+				// Extract the first coordinate pair as Toronto data uses MultiPoint
+				let coords = f.geometry.coordinates;
+				if (f.geometry.type === "MultiPoint" && coords.length > 0) {
+					coords = coords[0];
+				}
+
+				return {
+					type: "Feature",
+					geometry: {
+						type: "Point",
+						coordinates: coords,
+					},
+					properties: {
+						mainroad: p.MAINROAD || "",
+						crossroad: p.CROSSROAD || "",
+						imageurl: p.IMAGEURL || "",
+						refurl1: p.REFURL1 || "",
+						direction1: p.DIRECTION1 || "",
+						refurl2: p.REFURL2 || "",
+						direction2: p.DIRECTION2 || "",
+						refurl3: p.REFURL3 || "",
+						direction3: p.DIRECTION3 || "",
+						refurl4: p.REFURL4 || "",
+						direction4: p.DIRECTION4 || "",
+						title:
+							p.MAINROAD && p.CROSSROAD
+								? `${p.MAINROAD} / ${p.CROSSROAD}`
+								: "Traffic Camera",
+					},
+				};
+			});
+
+			return {
+				type: "FeatureCollection",
+				features: features,
+			};
+		}
+
+		/**
+		 * Popup display on click (Live Image version)
+		 */
+		async function showTorontoProperty(target) {
+			const metaSchema = document.documentElement
+				.getAttribute("property")
+				.split(",");
+			const metaData = svgMap.parseEscapedCsvLine(
+				target.getAttribute("content"),
+			);
+
+			const getData = (key) => metaData[metaSchema.indexOf(key)];
+
+			const camName = getData("title");
+			// Use only actual live images (CameraImages)
+			const liveCamUrl = getData("imageurl");
+			const ts = new Date().getTime(); // Cache buster
+
+			let message = `<div style="max-height:600px; overflow-y:auto; padding-right:5px; font-family: sans-serif;">`;
+
+			// Camera Name Header
+			message += `
+                <div style="font-size:16px; font-weight:bold; color:darkred; margin-bottom:10px; border-bottom:3px solid darkred; padding-bottom:5px;">
+                    ${camName}
+                </div>`;
+
+			message += `<table border='1' style='font-size:11px; width:100%; border-collapse:collapse; border:solid darkred;'>`;
+
+			// Live Image Area
+			if (liveCamUrl && liveCamUrl !== "None") {
+				// Convert to HTTPS if necessary to prevent Mixed Content warnings
+				const secureUrl = liveCamUrl.replace(/^http:\/\//i, "https://");
+
+				message += `
+                    <tr><td colspan="2" style="background:#000; padding:0; text-align:center;">
+                        <a target="_blank" href="${secureUrl}">
+                            <img src="${secureUrl}?t=${ts}" width="100%" style="display:block;" >
+                        </a>
+                    </td></tr>`;
+			} else {
+				message += `<tr><td colspan="2" style="padding:15px; color:#d9534f; text-align:center; font-weight:bold;">No live image available</td></tr>`;
+			}
+
+			// Property Details (Hide internal URLs, show only intersection info)
+			const ignoreKeys = [
+				"title",
+				"imageurl",
+				"refurl1",
+				"direction1",
+				"refurl2",
+				"direction2",
+				"refurl3",
+				"direction3",
+				"refurl4",
+				"direction4",
+			];
+			metaData.forEach((itm, idx) => {
+				const key = metaSchema[idx];
+				if (!ignoreKeys.includes(key)) {
+					const displayVal =
+						itm && itm.startsWith("http")
+							? `<a href="${itm}" target="_blank" style="color:darkred; word-break:break-all;">${itm}</a>`
+							: itm || "";
+					message += `<tr><td style="background:#f9ecec; width:35%; padding:4px; font-weight:bold;">${key}</td><td style="padding:4px;">${displayVal}</td></tr>`;
+				}
+			});
+			message += `</table>`;
+
+			// Credit
+			message += `
+                <div style='font-size:9px; margin-top:10px; color:#555; line-height:1.2; padding:5px; border-top:1px dashed #ccc;'>
+                    <b>Source:</b> Contains information licensed under the <a href="https://open.toronto.ca/dataset/traffic-cameras/" target="_blank">Open Government Licence – Toronto</a>.
+                </div></div>`;
+
+			// Show Modal
+			svgMap.showModal(message, 450, 480);
+		}
+	</script>
+	<body>
+		<h4>Toronto City Live Cam Layer</h4>
+		<div style="font-size: 12px; list-style-type: none; padding: 0">
+			<li style="margin-bottom: 4px">
+				Source:
+				<a
+					href="https://open.toronto.ca/dataset/traffic-cameras/"
+					target="_blank"
+					>Toronto Open Data</a
+				>
+			</li>
+			<li style="margin-bottom: 4px">
+				Icon:
+				<img
+					src="cam1.png"
+					width="18"
+					height="18"
+					style="vertical-align: middle"
+				/>
+			</li>
+		</div>
+	</body>
+</html>

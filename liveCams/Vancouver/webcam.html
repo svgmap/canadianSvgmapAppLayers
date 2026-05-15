@@ -1,0 +1,284 @@
+<!doctype html>
+<html property="title,mapid,name,geo_local_area,url">
+	<head>
+		<meta charset="UTF-8" />
+		<title>Vancouver Traffic Cameras (LaWA Layer)</title>
+	</head>
+	<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+	<script>
+		// Description:
+		//	Vancouver City Live Cam Layer
+		//
+		// License: (MPL v2)
+		// This Source Code Form is subject to the terms of the Mozilla Public
+		// License, v. 2.0. If a copy of the MPL was not distributed with this
+		// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+		
+		// Configuration: City of Vancouver Full JSON Export URL
+		const cameraListUrl =
+			"https://opendata.vancouver.ca/api/explore/v2.1/catalog/datasets/web-cam-url-links/exports/json";
+
+		/**
+		 * Initialization: Fetch JSON and render as GeoJSON
+		 */
+		onload = async function () {
+			try {
+				// Fetch the JSON list (Vancouver API is CORS-friendly, but using getCORSURL just in case)
+				const response = await fetch(svgMap.getCORSURL(cameraListUrl));
+				const rawData = await response.json();
+
+				// Convert to GeoJSON (Handles flat array structure)
+				const gjs = convertVancouverToGeoJSON(rawData);
+				console.log("Vancouver Data Loaded: geojson:", gjs);
+
+				const metaDict = ["title", "mapid", "name", "geo_local_area", "url"];
+
+				// Rendering Settings
+				// Note: layerID is assumed to be defined as a global variable by the caller
+				const targetLayerID =
+					typeof layerID !== "undefined" ? layerID : "vancouver_cam_layer";
+				svgMap.setShowPoiProperty(showVancouverProperty, targetLayerID);
+
+				// Set unique property list to the document
+				document.documentElement.setAttribute("property", metaDict.join(","));
+
+				// Deploy on map (Color changed to darkblue)
+				svgMapGIStool.drawGeoJson(
+					gjs,
+					targetLayerID,
+					"darkblue",
+					2,
+					"white",
+					"p4",
+					"title",
+					null,
+					null,
+					metaDict,
+				);
+				svgMap.refreshScreen();
+			} catch (e) {
+				console.error("Vancouver Layer Load Error:", e);
+			}
+		};
+
+		/**
+		 * Convert Vancouver City JSON structure to GeoJSON
+		 */
+		function convertVancouverToGeoJSON(cameraArray) {
+			// Loop through the array to generate GeoJSON Features
+			const features = cameraArray
+				.map((cam) => {
+					// Skip invalid records missing coordinate data
+					if (
+						!cam.geo_point_2d ||
+						!cam.geo_point_2d.lon ||
+						!cam.geo_point_2d.lat
+					)
+						return null;
+
+					return {
+						type: "Feature",
+						geometry: {
+							type: "Point",
+							coordinates: [
+								parseFloat(cam.geo_point_2d.lon),
+								parseFloat(cam.geo_point_2d.lat),
+							],
+						},
+						properties: {
+							mapid: cam.mapid || "",
+							name: cam.name || "",
+							geo_local_area: cam.geo_local_area || "Unknown Area",
+							url: cam.url || "",
+							title: "Vancouver Cam: " + (cam.mapid || ""),
+						},
+					};
+				})
+				.filter((feature) => feature !== null);
+
+			return {
+				type: "FeatureCollection",
+				features: features,
+			};
+		}
+
+		/**
+		 * Click Popup Display
+		 * Phase 1: Instead of direct image display, place a button link to the target HTML page
+		 */
+		async function showVancouverProperty_ph1(target) {
+			const metaSchema = document.documentElement
+				.getAttribute("property")
+				.split(",");
+			const metaData = svgMap.parseEscapedCsvLine(
+				target.getAttribute("content"),
+			);
+
+			const camUrl = metaData[metaSchema.indexOf("url")];
+
+			// Construct Modal HTML
+			let message = `<table border='1' style='font-size:11px; width:100%; border-collapse:collapse; border:solid darkblue;'>`;
+
+			// Action Area (Link to HTML page)
+			message += `<tr><td colspan="2" style="background:#f4f6f9; padding:20px; text-align:center;">
+                            <div style="margin-bottom: 10px; font-weight: bold; color: #333;">Live images are available on the following page:</div>
+                            <a target="_blank" href="${camUrl}" style="display:inline-block; padding:10px 20px; background:darkblue; color:white; text-decoration:none; border-radius:4px; font-size:12px; font-weight:bold;">
+                                📷 Open Camera Page (New Tab)
+                            </a>
+                        </td></tr>`;
+
+			// Property Details
+			metaData.forEach((itm, idx) => {
+				// Process string as link if it starts with URL
+				const displayVal =
+					itm && itm.startsWith("http")
+						? `<a href="${itm}" target="_blank" style="color:darkblue; word-break:break-all;">${itm}</a>`
+						: itm || "";
+				message += `<tr><td style="background:#e9ecef; width:35%; padding:4px;">${metaSchema[idx]}</td><td style="padding:4px;">${displayVal}</td></tr>`;
+			});
+			message += `</table>`;
+
+			// Credit (Open Government Licence – Vancouver)
+			message += `
+                <div style='font-size:9px; margin-top:10px; color:#555; line-height:1.2; padding:5px; border-top:1px dashed #ccc;'>
+                    <b>Source:</b> Contains information licensed under the <a href="https://opendata.vancouver.ca/pages/licence/" target="_blank">Open Government Licence – Vancouver</a>.
+                </div>`;
+
+			// Set a lower height for Phase 1 as no images are rendered
+			svgMap.showModal(message, 420, 320);
+		}
+
+		/**
+		 * Click Popup Display (Phase 2 - Improved Tile Version)
+		 */
+		async function showVancouverProperty(target) {
+			const metaSchema = document.documentElement
+				.getAttribute("property")
+				.split(",");
+			const metaData = svgMap.parseEscapedCsvLine(
+				target.getAttribute("content"),
+			);
+
+			const camUrl = metaData[metaSchema.indexOf("url")];
+			const camName = metaData[metaSchema.indexOf("name")];
+
+			// 1. Display a subtle loading message on the LaWA document itself
+			const loadingMsg = document.createElement("div");
+			loadingMsg.style.cssText =
+				"position:fixed; top:10px; left:10px; background:rgba(0,0,139,0.8); color:white; padding:6px 12px; border-radius:4px; font-size:12px; z-index:9999;";
+			loadingMsg.innerHTML = `📸 Fetching ${camName}...`;
+			document.body.appendChild(loadingMsg);
+
+			let imagesHtml = "";
+
+			try {
+				const response = await fetch(svgMap.getCORSURL(camUrl));
+				if (!response.ok) throw new Error("Network response was not ok");
+				const htmlText = await response.text();
+
+				const parser = new DOMParser();
+				const doc = parser.parseFromString(htmlText, "text/html");
+				const cameraDivs = doc.querySelectorAll(".camera");
+
+				if (cameraDivs.length > 0) {
+					const baseUrl = new URL(camUrl);
+					const ts = new Date().getTime();
+
+					cameraDivs.forEach((div) => {
+						const directionTag = div.querySelector("strong");
+						const direction = directionTag
+							? directionTag.textContent
+							: "Camera";
+						const imgTag = div.querySelector("img");
+
+						if (imgTag) {
+							const imgSrc = imgTag.getAttribute("src");
+							const absoluteImgUrl = new URL(imgSrc, baseUrl.origin).href;
+							console.log("absoluteImgUrl:", absoluteImgUrl);
+							const proxiedImgUrl = svgMap.getCORSURL(`${absoluteImgUrl}?t=${ts}`);
+
+							imagesHtml += `
+                                <div style="margin-bottom:15px; border:2px solid #333; text-align:left;">
+                                    <div style="color:white; font-size:12px; font-weight:bold; padding:4px 8px; background:#222;">
+                                        🧭 ${direction}
+                                    </div>
+                                    <img src="${proxiedImgUrl}" style="width:100%; display:block;" crossorigin >
+                                </div>
+                            `;
+						}
+					});
+				} else {
+					imagesHtml = `<div style="padding:15px; color:#d9534f; text-align:center; font-weight:bold;">No camera images found</div>`;
+				}
+			} catch (error) {
+				console.error("Vancouver Scraping error:", error);
+				imagesHtml = `
+                    <div style="padding: 20px; color: #ff6b6b; text-align:center;">
+                        Failed to retrieve images.<br><br>
+                        <a href="${camUrl}" target="_blank" style="padding:8px 15px; background:darkblue; color:white; text-decoration:none; border-radius:4px;">Open Page Directly</a>
+                    </div>
+                `;
+			} finally {
+				if (loadingMsg.parentNode) {
+					loadingMsg.parentNode.removeChild(loadingMsg);
+				}
+			}
+
+			// --- Start Modal HTML Construction ---
+			let message = `<div style="max-height:600px; overflow-y:auto; padding-right:5px; font-family: sans-serif;">`;
+
+			// [Fixed Section] Display large camera name at the top of the modal
+			message += `
+                <div style="font-size:18px; font-weight:bold; color:darkblue; margin-bottom:10px; border-bottom:3px solid darkblue; padding-bottom:5px;">
+                    ${camName}
+                </div>`;
+
+			message += `<table border='1' style='font-size:11px; width:100%; border-collapse:collapse; border:solid darkblue;'>`;
+
+			// Image Area
+			message += `<tr><td colspan="2" style="background:#111; padding:10px;">${imagesHtml}</td></tr>`;
+
+			// Property Details
+			metaData.forEach((itm, idx) => {
+				const displayVal =
+					itm && itm.startsWith("http")
+						? `<a href="${itm}" target="_blank" style="color:darkblue; word-break:break-all;">${itm}</a>`
+						: itm || "";
+				message += `<tr><td style="background:#e9ecef; width:35%; padding:4px;">${metaSchema[idx]}</td><td style="padding:4px;">${displayVal}</td></tr>`;
+			});
+			message += `</table>`;
+
+			// Source/Credit
+			message += `
+                <div style='font-size:9px; margin-top:10px; color:#555; line-height:1.2; padding:5px; border-top:1px dashed #ccc;'>
+                    <b>Source:</b> Contains information licensed under the <a href="https://opendata.vancouver.ca/pages/licence/" target="_blank">Open Government Licence – Vancouver</a>.
+                </div></div>`;
+
+			// Display Modal
+			svgMap.showModal(message, 450, 650);
+		}
+	</script>
+	<body>
+		<h4>Vancouver City Live Cam Layer</h4>
+		<div style="font-size: 12px; list-style-type: none; padding: 0">
+			<li style="margin-bottom: 4px">
+				Source:
+				<a
+					href="https://opendata.vancouver.ca/explore/dataset/web-cam-url-links/"
+					target="_blank"
+					>City of Vancouver Open Data</a
+				>
+			</li>
+			<li style="margin-bottom: 4px">
+				Icon:
+				<img
+					src="cam1.png"
+					width="18"
+					height="18"
+					style="vertical-align: middle"
+					onerror="this.style.display = 'none'"
+				/>
+			</li>
+		</div>
+	</body>
+</html>
