@@ -1,0 +1,535 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="UTF-8" />
+		<title>Calgary Infrastructure - QTCT Switcher Demo</title>
+		<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+		<script type="module">
+			// import { CsvMapper } from "./CsvMapper.js";
+			import { CsvMapper } from "https://cdn.jsdelivr.net/gh/svgmap/svgmapAppLayers@latest/commonLib/CsvMapper.js";
+			window.CsvMapperClass = CsvMapper; // Expose to global scope for the script below
+		</script>
+		<style>
+			body {
+				font-family: "Segoe UI", sans-serif;
+				margin: 10px;
+				font-size: 12px;
+				line-height: 1.4;
+				color: #333;
+			}
+			/* ロード中のメッセージを青色・太字にして視認性を向上 */
+			#messageDiv {
+				color: #005a9e;
+				font-weight: bold;
+				font-size: 13px;
+				height: 1.5em;
+				margin-bottom: 5px;
+			}
+			/* レコード総数は赤色で強調 */
+			#recordInfo {
+				color: #d32f2f;
+				font-weight: bold;
+				font-size: 13px;
+				margin-bottom: 10px;
+			}
+
+			.ui-container {
+				border: 1px solid #ccc;
+				background: #f9f9f9;
+				padding: 10px;
+				border-radius: 4px;
+				box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+				margin-bottom: 10px;
+			}
+			.filter-scroll {
+				max-height: 250px;
+				overflow-y: auto;
+				border: 1px solid #ddd;
+				background: white;
+				margin: 5px 0;
+			}
+			table {
+				width: 100%;
+				border-collapse: collapse;
+			}
+			tr:hover {
+				background-color: #f0f7ff;
+			}
+			td {
+				padding: 4px 8px;
+				border-bottom: 1px solid #eee;
+			}
+			.count-badge {
+				color: #666;
+				font-size: 10px;
+				margin-left: 5px;
+				font-weight: normal;
+			}
+			.btn-group {
+				margin-top: 10px;
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				flex-wrap: wrap;
+			}
+			input[type="button"],
+			select {
+				cursor: pointer;
+				padding: 6px 15px;
+				border-radius: 3px;
+				font-weight: bold;
+				border: 1px solid #ccc;
+			}
+			select {
+				width: 100%;
+				font-size: 13px;
+				font-weight: normal;
+				background: white;
+			}
+			.btn-primary {
+				background: #0078d4;
+				color: white;
+				border: none !important;
+			}
+			.btn-primary:hover {
+				background: #005a9e;
+			}
+			.btn-sub {
+				background: #fff;
+				color: #333;
+			}
+			.footer {
+				margin-top: 15px;
+				padding-top: 5px;
+				border-top: 1px dotted #ccc;
+				font-size: 11px;
+				color: #666;
+			}
+			.footer a {
+				color: #005a9e;
+				text-decoration: none;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div
+			id="modeDisplay"
+			style="
+				font-size: 15px;
+				font-weight: bold;
+				color: #005a9e;
+				margin-bottom: 5px;
+			"
+		>
+			Initializing...
+		</div>
+		<div id="recordInfo"></div>
+		<div id="messageDiv">Ready.</div>
+
+		<div class="ui-container">
+			<strong>Dataset Selector</strong>
+			<select id="datasetSelect" onchange="changeDataset()"></select>
+		</div>
+
+		<div class="ui-container">
+			<strong>Category Filter</strong>
+			<div class="filter-scroll">
+				<table>
+					<tbody id="filterUI"></tbody>
+				</table>
+			</div>
+			<div class="btn-group">
+				<input
+					type="button"
+					class="btn-primary"
+					value="Apply Filter"
+					onclick="filterCat()"
+				/>
+				<input
+					type="button"
+					class="btn-sub"
+					value="Uncheck All"
+					onclick="toggleAll(false)"
+				/>
+				<input
+					type="button"
+					class="btn-sub"
+					value="Check All"
+					onclick="toggleAll(true)"
+				/>
+				<span id="statInfo" style="color: #666; margin-left: auto"></span>
+			</div>
+		</div>
+
+		<div class="footer">
+			Data Source:
+			<a href="https://data.calgary.ca/" target="_blank">Open Calgary</a>
+		</div>
+
+		<script>
+			// Description:
+			// LaWA for Calgary Open Data (for Point geometry)
+			//
+			// License: (MPL v2)
+			// This Source Code Form is subject to the terms of the Mozilla Public
+			// License, v. 2.0. If a copy of the MPL was not distributed with this
+			// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+			// --- Configuration for Calgary Open Data ---
+			// JSON endpoints were converted to CSV to utilize the high-performance streaming parser
+			const CONFIG = {
+				signs: {
+					url: "https://data.calgary.ca/resource/u6ce-yibw.csv?$limit=1000000",
+					catCol: "blade_type",
+					title: "Calgary Traffic Signs",
+					threshold: 100,
+				},
+				poles: {
+					url: "https://data.calgary.ca/resource/vt3t-jpfj.csv?$limit=1000000",
+					catCol: "pl_ty_resolved",
+					title: "Calgary Utility Poles",
+					threshold: 100,
+				},
+				trees: {
+					url: "https://data.calgary.ca/resource/tfs4-3wwa.csv?$limit=1000000",
+					catCol: "common_name",
+					title: "Calgary Urban Forest (Trees)",
+					threshold: 100,
+				},
+				licenses: {
+					url: "https://data.calgary.ca/resource/vdjc-pybd.csv?$limit=1000000",
+					catCol: "licencetypes",
+					title: "Calgary Business Licenses",
+					threshold: 100,
+				},
+				police: {
+					url: "https://data.calgary.ca/resource/ap4r-bav3.csv?$limit=1000000",
+					catCol: "station_ty",
+					title: "Police Service Locations",
+					threshold: 1,
+				},
+				art: {
+					url: "https://data.calgary.ca/resource/2kp2-hsy7.csv?$limit=1000000",
+					catCol: "art_type",
+					title: "Public Art Locations",
+					threshold: 1,
+				},
+				playground: {
+					url: "https://data.calgary.ca/resource/bdu9-amk8.csv?$limit=1000000",
+					catCol: "type_description",
+					title: "Playground Equipment",
+					threshold: 5,
+				},
+				farmstand: {
+					url: "https://data.calgary.ca/resource/ipm6-y48y.csv?$limit=1000000",
+					catCol: "vendor_name",
+					title: "Calgary Eats Farm Stand",
+					threshold: 1,
+				},
+				micromobility: {
+					url: "https://data.calgary.ca/resource/8mci-3bzr.csv?$limit=1000000",
+					catCol: "vendor",
+					title: "Micromobility Locations",
+					threshold: 1,
+				},
+				health: {
+					url: "https://data.calgary.ca/resource/x34e-bcjz.csv?$query=SELECT%20*%20WHERE%20(%60type%60%20%3D%20'PHS%20Clinic'%20OR%20%60type%60%20%3D%20'Hospital')%20LIMIT%201000000",
+					catCol: "type",
+					title: "Health Clinics and Hospitals",
+					threshold: 1,
+				},
+				community: {
+					url: "https://data.calgary.ca/resource/x34e-bcjz.csv?$limit=1000000",
+					catCol: "type",
+					title: "Community Services Map",
+					threshold: 5,
+				},
+				hydrants: {
+					url: "https://data.calgary.ca/resource/h4dj-4jg8.csv?$limit=1000000",
+					catCol: "hydrant_type",
+					title: "Private Water Hydrants",
+					threshold: 1,
+				},
+			};
+
+			let currentMode = "community"; // Default mode
+			let rawCsvRows = [];
+			let myCsvMapper;
+			let iconDataURL;
+			let categoryColIdx = -1;
+			let typeCounts = new Map();
+			let latColIdx = -1;
+			let lngColIdx = -1;
+
+			// Bind the preRenderFunction to the global scope for the layer manager
+			window.preRenderFunction = () =>
+				myCsvMapper ? myCsvMapper.preRenderFunction() : null;
+
+			/**
+			 * Custom CSV Parser (RFC4180-like compliance)
+			 */
+			function parseLine(line) {
+				const parts = [];
+				let current = "";
+				let inQuotes = false;
+				for (let i = 0; i < line.length; i++) {
+					let char = line[i];
+					if (char === '"') {
+						inQuotes = !inQuotes;
+					} else if (char === "," && !inQuotes) {
+						parts.push(current.trim());
+						current = "";
+					} else {
+						current += char;
+					}
+				}
+				parts.push(current.trim());
+				return parts;
+			}
+
+			addEventListener("load", async function () {
+				// 1. Determine dataset mode from the SVGMap URL hash
+				const hash = window.svgImageProps
+					? window.svgImageProps.hash.toLowerCase()
+					: "";
+				for (const key in CONFIG) {
+					if (hash.includes(key)) currentMode = key;
+				}
+
+				// 2. Initialize the Dropdown UI
+				initDropdown();
+				document.getElementById("modeDisplay").innerText =
+					CONFIG[currentMode].title;
+
+				// 3. Extract the icon image URI
+				const templateImg = svgImage
+					.getElementById("p0")
+					?.getElementsByTagName("image")[0];
+				if (templateImg) {
+					iconDataURL = await imageToDataURIByPath(
+						templateImg.getAttribute("xlink:href")
+					);
+				}
+
+				// 4. Initialize the QTCT CsvMapper
+				myCsvMapper = new window.CsvMapperClass({
+					svgMap: window.svgMap,
+					svgImage: window.svgImage,
+					svgImageProps: window.svgImageProps,
+					layerID: window.layerID,
+					messageDivElm: document.getElementById("messageDiv"),
+				});
+				myCsvMapper.onload();
+
+				// 5. Fetch and process the data
+				await loadData();
+			});
+
+			// Populate the Dropdown Menu dynamically
+			function initDropdown() {
+				const select = document.getElementById("datasetSelect");
+				select.innerHTML = "";
+				for (const [key, config] of Object.entries(CONFIG)) {
+					const option = document.createElement("option");
+					option.value = key;
+					option.text = config.title;
+					if (key === currentMode) option.selected = true;
+					select.appendChild(option);
+				}
+			}
+
+			// Handle Dropdown Change Event
+			function changeDataset() {
+				const select = document.getElementById("datasetSelect");
+				currentMode = select.value;
+				document.getElementById("modeDisplay").innerText =
+					CONFIG[currentMode].title;
+
+				// Clear old data to prevent ghosts
+				const msg = document.getElementById("messageDiv");
+				const recInfo = document.getElementById("recordInfo");
+				document.getElementById("filterUI").innerHTML = "";
+				document.getElementById("statInfo").innerText = "";
+				recInfo.innerText = "";
+				msg.innerText = "Switching dataset...";
+
+				loadData();
+			}
+
+			async function loadData() {
+				const msg = document.getElementById("messageDiv");
+				const recInfo = document.getElementById("recordInfo");
+				const target = CONFIG[currentMode];
+				msg.innerText = `Fetching ${target.title}...`;
+
+				try {
+					const response = await fetch(target.url);
+					const reader = response.body.getReader();
+					const decoder = new TextDecoder("utf-8");
+					let result = "";
+					let receivedLength = 0;
+
+					while (true) {
+						const { done, value } = await reader.read();
+						if (done) break;
+						result += decoder.decode(value, { stream: true });
+						receivedLength += value.length;
+						msg.innerText = `Downloading: ${(receivedLength / 1048576).toFixed(2)} MB ...`;
+					}
+
+					msg.innerText = "Parsing CSV Data...";
+
+					rawCsvRows = result
+						.split(/\r?\n/)
+						.filter((line) => line.trim() !== "");
+					const header = parseLine(rawCsvRows[0]).map((h) => h.toLowerCase());
+
+					// Find category column (fallback to "None" if dataset schema doesn't match exactly)
+					categoryColIdx = header.indexOf(target.catCol.toLowerCase());
+
+					// Setup coordinate fallback columns in case WKT 'POINT' is missing
+					latColIdx = header.indexOf("latitude");
+					if (latColIdx === -1) latColIdx = header.indexOf("lat");
+					lngColIdx = header.indexOf("longitude");
+					if (lngColIdx === -1) lngColIdx = header.indexOf("lon");
+					if (lngColIdx === -1) lngColIdx = header.indexOf("long");
+
+					typeCounts.clear();
+					for (let i = 1; i < rawCsvRows.length; i++) {
+						const cols = parseLine(rawCsvRows[i]);
+						let cat = categoryColIdx > -1 ? cols[categoryColIdx] : "None";
+						if (!cat || cat === "") cat = "None";
+						typeCounts.set(cat, (typeCounts.get(cat) || 0) + 1);
+					}
+
+					const ui = document.getElementById("filterUI");
+					ui.innerHTML = "";
+					const sortedCats = Array.from(typeCounts.keys()).sort();
+					let displayCount = 0;
+					let minorTotal = 0;
+
+					sortedCats.forEach((cat) => {
+						if (typeCounts.get(cat) >= target.threshold) {
+							addRow(cat, typeCounts.get(cat));
+							displayCount++;
+						} else {
+							minorTotal += typeCounts.get(cat);
+						}
+					});
+
+					if (minorTotal > 0) {
+						typeCounts.set("Others", minorTotal);
+						addRow("Others", minorTotal);
+					}
+
+					msg.innerText = "Parsing complete.";
+					document.getElementById("statInfo").innerText =
+						`Groups: ${displayCount + (minorTotal ? 1 : 0)}`;
+					recInfo.innerText = `Loaded Total: ${(rawCsvRows.length - 1).toLocaleString()} records`;
+
+					// Trigger initial QTCT rendering
+					filterCat();
+				} catch (e) {
+					msg.innerText = "Error: " + e.message;
+				}
+			}
+
+			function addRow(cat, count) {
+				const ui = document.getElementById("filterUI");
+				const tr = document.createElement("tr");
+				tr.innerHTML = `<td><input type="checkbox" id="c_${cat}" checked value="${cat}"></td>
+                    <td><label for="c_${cat}">${cat}<span class="count-badge">(${count.toLocaleString()})</span></label></td>`;
+				ui.appendChild(tr);
+			}
+
+			function toggleAll(state) {
+				const checkboxes = document
+					.getElementById("filterUI")
+					.getElementsByTagName("input");
+				for (let cb of checkboxes) cb.checked = state;
+			}
+
+			/**
+			 * Applies the user's category filters and passes the data to the QTCT Engine.
+			 */
+			function filterCat() {
+				const checkboxes = document
+					.getElementById("filterUI")
+					.getElementsByTagName("input");
+				const selected = new Set();
+				for (let cb of checkboxes) if (cb.checked) selected.add(cb.value);
+
+				document.getElementById("messageDiv").innerText =
+					"Tiling data with QTCT Engine...";
+
+				const target = CONFIG[currentMode];
+				const processedRows = [rawCsvRows[0] + ',"_fixed_title","_lat","_lng"'];
+				const reWkt = /POINT\s*\(([-\d\.]+)\s+([\d\.]+)\)/;
+
+				for (let i = 1; i < rawCsvRows.length; i++) {
+					const line = rawCsvRows[i];
+					const cols = parseLine(line);
+					let catValue = categoryColIdx > -1 ? cols[categoryColIdx] : "None";
+					if (!catValue || catValue === "") catValue = "None";
+
+					let targetCat =
+						typeCounts.get(catValue) < target.threshold && catValue !== "Others"
+							? "Others"
+							: catValue;
+
+					if (selected.has(targetCat)) {
+						let lat = null,
+							lng = null;
+
+						// Try WKT extraction first
+						const match = reWkt.exec(line);
+						if (match) {
+							lng = match[1];
+							lat = match[2];
+						}
+						// Fallback to separate lat/lng columns if WKT doesn't exist
+						else if (latColIdx > -1 && lngColIdx > -1) {
+							lat = cols[latColIdx];
+							lng = cols[lngColIdx];
+						}
+
+						if (lat && lng) {
+							processedRows.push(
+								`${line},"${catValue.replace(/"/g, '""')}",${lat},${lng}`
+							);
+						}
+					}
+				}
+
+				const finalCsv = processedRows.join("\n");
+				const finalHeader = parseLine(processedRows[0]);
+
+				const tIdx = finalHeader.length - 3;
+				const laIdx = finalHeader.length - 2;
+				const loIdx = finalHeader.length - 1;
+
+				const totalLoaded = (rawCsvRows.length - 1).toLocaleString();
+				const displayed = (processedRows.length - 1).toLocaleString();
+				document.getElementById("recordInfo").innerText =
+					`Displaying: ${displayed} markers (out of ${totalLoaded} total records)`;
+
+				myCsvMapper.initCsv(finalCsv, laIdx, loIdx, tIdx, iconDataURL, null, 1);
+			}
+
+			async function imageToDataURIByPath(path) {
+				try {
+					const resp = await fetch(path);
+					const blob = await resp.blob();
+					return new Promise((resolve) => {
+						const reader = new FileReader();
+						reader.onloadend = () => resolve(reader.result);
+						reader.readAsDataURL(blob);
+					});
+				} catch (e) {
+					return null;
+				}
+			}
+		</script>
+	</body>
+</html>
