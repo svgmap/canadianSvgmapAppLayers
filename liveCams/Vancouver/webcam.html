@@ -21,7 +21,7 @@
 		/**
 		 * Initialization: Fetch JSON and render as GeoJSON
 		 */
-		onload = async function () {
+		addEventListener("layerWebAppReady", async  function(){
 			try {
 				// Fetch the JSON list (Vancouver API is CORS-friendly, but using getCORSURL just in case)
 				const response = await fetch(svgMap.getCORSURL(cameraListUrl));
@@ -59,7 +59,7 @@
 			} catch (e) {
 				console.error("Vancouver Layer Load Error:", e);
 			}
-		};
+		});
 
 		/**
 		 * Convert Vancouver City JSON structure to GeoJSON

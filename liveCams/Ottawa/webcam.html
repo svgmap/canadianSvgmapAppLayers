@@ -12,7 +12,7 @@
         /**
          * 初期化：JSONを取得してGeoJSONとして描画
          */
-        onload = async function() {
+        addEventListener("layerWebAppReady", async  function(){
             try {
                 // JSONリストを取得 (CORS回避のため svgMap.getCORSURL を使用)
                 const response = await fetch(svgMap.getCORSURL(cameraListUrl));
@@ -34,7 +34,7 @@
             } catch (e) {
                 console.error("Ottawa Layer Load Error:", e);
             }
-        }
+        });
 
         /**
          * オタワ市JSON構造をGeoJSONに変換

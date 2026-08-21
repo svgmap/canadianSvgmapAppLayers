@@ -20,7 +20,7 @@
 		const cameraListUrl =
 			"https://ckan0.cf.opendata.inter.prod-toronto.ca/dataset/a3309088-5fd4-4d34-8297-77c8301840ac/resource/4a568300-c7f8-496d-b150-dff6f5dc6d4f/download/traffic-camera-list-4326.geojson";
 
-		onload = async function () {
+		addEventListener("layerWebAppReady", async  function(){
 			try {
 				// Fetch data directly from Toronto CKAN
 				const response = await fetch(svgMap.getCORSURL(cameraListUrl));
@@ -67,7 +67,7 @@
 			} catch (e) {
 				console.error("Toronto Layer Load Error:", e);
 			}
-		};
+		});
 
 		/**
 		 * Optimize Toronto GeoJSON for svgmap.js

@@ -17,7 +17,7 @@
 		// Configuration: City of Calgary Open Data GeoJSON Endpoint
 		const geojsonUrl = "https://data.calgary.ca/resource/k7p9-kppz.geojson";
 
-		onload = async function () {
+		addEventListener("layerWebAppReady", async  function(){
 			try {
 				const response = await fetch(svgMap.getCORSURL(geojsonUrl));
 				let gjs = await response.json();
@@ -53,7 +53,7 @@
 			} catch (e) {
 				console.error("Layer Load Error:", e);
 			}
-		};
+		});
 
 		/**
 		 * GeoJSON Data Touch-up Function

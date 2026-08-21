@@ -16,7 +16,7 @@
 
 var endPointUrl = "https://www.manitoba511.ca/map/mapIcons/Cameras";
 
-onload = async function() {
+addEventListener("layerWebAppReady", async  function(){
 	var camJson = await (await fetch(svgMap.getCORSURL(endPointUrl))).json();
 	var gjs = convertMBToGeoJSON(camJson);
 	
@@ -27,7 +27,7 @@ onload = async function() {
 	svgImage.documentElement.setAttribute("property", metaDict.join());
 	svgMapGIStool.drawGeoJson(gjs, layerID, "red", 2, "orange", "p1", "name", null, null, metaDict);
 	svgMap.refreshScreen();
-}
+});
 
 /**
  * マニトバ州の初期位置リストをGeoJSON化

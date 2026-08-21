@@ -288,7 +288,7 @@
 				return parts;
 			}
 
-			addEventListener("load", async function () {
+			addEventListener("layerWebAppReady", async function () {
 				// 1. Determine dataset mode from the SVGMap URL hash
 				const hash = window.svgImageProps
 					? window.svgImageProps.hash.toLowerCase()

@@ -17,7 +17,7 @@
 
 var endPointUrl ="https://www.drivebc.ca/api/webcams/?";
 
-onload=async function(){
+addEventListener("layerWebAppReady", async  function(){
 	
 	var camJson= await(await fetch(svgMap.getCORSURL(endPointUrl))).json();
 	console.log(camJson);
@@ -31,7 +31,7 @@ onload=async function(){
 	svgImage.documentElement.setAttribute("property",metaDict.join());
 	svgMapGIStool.drawGeoJson(gjs.geojson,layerID,"red",2,"orange","p2","name",null,null,metaDict);
 	svgMap.refreshScreen();
-}
+});
 
 /**
  * DriveBCのJSONをGeoJSONに変換し、プロパティリストを生成する

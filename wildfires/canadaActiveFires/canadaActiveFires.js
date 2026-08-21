@@ -18,13 +18,13 @@ const colorMap = new Map([
 let mapLayer;
 let cachedSchema = null;
 
-onload = () => {
+addEventListener("layerWebAppReady", async  function(){
   mapLayer = svgImage.getElementById('mapLayer');
   renderFireData();
 
   const interval = setInterval(renderFireData, refreshInterval);
   addEventListener("closeFrame", () => clearInterval(interval));
-};
+});
 
 const fetchFireData = async (url) => {
   try {

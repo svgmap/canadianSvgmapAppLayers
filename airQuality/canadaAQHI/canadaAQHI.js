@@ -6,12 +6,12 @@ let currentTimeOffset = 0;
 let lastRefreshTime = Date.now();
 let timeOffsetDisplay = undefined;
 
-onload = () => {
+addEventListener("layerWebAppReady", function(){
   timeOffsetDisplay = document.getElementById("timeOffsetDisplay");
   addEventListener("timeOffsetUpdate", getAQHI);
   setInterval(async () => checkIfUpdateNeeded(getAQHI), refreshInterval);
   getAQHI();
-}
+});
 
 async function getAQHI() {
   const queryUrl = buildQuery()

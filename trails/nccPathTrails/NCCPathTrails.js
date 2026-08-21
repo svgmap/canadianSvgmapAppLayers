@@ -1,11 +1,11 @@
 const baseUrl = "https://services2.arcgis.com/WLyMuW006nKOfa5Z/arcgis/rest/services/NCC_Paths_and_Trails/FeatureServer/1/";
 
-onload = () => { // Removed 'const' to make it globally accessible/mutable.
+addEventListener("layerWebAppReady",  function(){ // Removed 'const' to make it globally accessible/mutable.
 //    addEventListener("zoomPanMap", getPathsNCC); 
 //    Commented out: The API endpoint doesn't seem to support spatial queries (like bounding boxes). 
 //    Since we are fetching the entire dataset at once, there's no need to re-fetch on every zoom or pan.
     getPathsNCC();
-}
+});
 
 async function getPathsNCC() {
     const queryUrl = buildQuery(); // Building the full url 

@@ -18,7 +18,7 @@ var endPointUrl = "https://511on.ca/api/v2/get/cameras";
 // スキーマ（プロパティの並び順）を厳密に定義
 var metaDict = ["itemId", "name", "source", "imageUrl", "desc"];
 
-onload = async function() {
+addEventListener("layerWebAppReady", async  function(){
 	var camJson = await (await fetch(svgMap.getCORSURL(endPointUrl))).json();
 	var gjs = convertONToGeoJSON(camJson);
 	
@@ -33,7 +33,7 @@ onload = async function() {
 	// drawGeoJson に metaDict を渡して、content属性を正しく生成させる
 	svgMapGIStool.drawGeoJson(gjs, layerID, "red", 2, "orange", "p2", "name", null, null, metaDict);
 	svgMap.refreshScreen();
-}
+});
 
 /**
  * オンタリオ州の初期JSONからGeoJSON化
