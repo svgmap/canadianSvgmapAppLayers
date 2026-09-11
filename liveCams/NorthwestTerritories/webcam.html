@@ -1,0 +1,410 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Northwest Territories DriveNWT Layer</title>
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="customShowPoiProperty.js"></script>
+<script>
+// Description:
+//  drivenwt.ca (Northwest Territories / DriveNWT) live cameras + optional road data
+//
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// Source data: Government of the Northwest Territories (DriveNWT).
+// Non-commercial reproduction with copyright acknowledgment is permitted
+// under https://www.gov.nt.ca/terms
+
+var pathEndpoint = "https://drivenwt.ca/Home/GetJsonDataPath?installationIndex=0";
+var baseUrl = "https://drivenwt.ca";
+
+var DIVISION = {
+  "8119": "devices",
+  "8128": "roadConditions",
+  "8130": "weightRestrictions",
+  "8131": "ferries",
+  "8136": "advisories",
+  "8163": "communities"
+};
+
+var CATEGORY_LABEL = {
+  cameras: "Cameras",
+  roadConditions: "Road Conditions",
+  ferries: "Ferries & Ice Crossings",
+  advisories: "Advisories",
+  communities: "Communities",
+  weightRestrictions: "Weight Restrictions",
+  devices: "Devices"
+};
+
+var CATEGORY_STYLE = {
+  roadConditions:     { stroke: "#099300", "stroke-width": 4, "stroke-opacity": 0.9, fill: "none" },
+  ferries:            { stroke: "#2980b9", "stroke-width": 4, "stroke-opacity": 0.9, fill: "none" },
+  advisories:         { stroke: "#e67e22", "stroke-width": 3, "stroke-opacity": 0.9, fill: "none" },
+  communities:        { stroke: "#8e44ad", "stroke-width": 2, "stroke-opacity": 0.8, fill: "none" },
+  weightRestrictions: { stroke: "#c0392b", "stroke-width": 3, "stroke-opacity": 0.9, fill: "none" },
+  devices:            { stroke: "#7f8c8d", "stroke-width": 2, "stroke-opacity": 0.8, fill: "none" }
+};
+
+var enabled = {
+  cameras: true,
+  roadConditions: false,
+  ferries: false,
+  advisories: false,
+  communities: false,
+  weightRestrictions: false,
+  devices: false
+};
+
+var cachedData = null;
+
+addEventListener("layerWebAppReady", async  function(){
+  try {
+    cachedData = await loadDriveNWT();
+    wireCheckboxes();
+    redraw();
+  } catch (e) {
+    console.error("DriveNWT load failed", e);
+  }
+});
+
+var manifestMap = {};
+
+async function loadDriveNWT() {
+  try {
+    var htmlUrl = svgMap.getCORSURL(baseUrl + "/");
+    var htmlText = await (await fetch(htmlUrl)).text();
+
+    var match = htmlText.match(/versionedFileManifest\s*:\s*(\{[\s\S]*?\})\s*,\s*configJsonPath/);
+    if (!match) {
+      match = htmlText.match(/versionedFileManifest\s*:\s*(\{[\s\S]*?\})/);
+    }
+    console.log("match:",match);
+
+    if (match && match[1]) {
+      manifestMap = JSON.parse(match[1]);
+      console.log("manifestMap successfully loaded:", Object.keys(manifestMap).length, "items");
+    } else {
+      console.warn("versionedFileManifest pattern not found in HTML");
+    }
+  } catch (err) {
+    console.warn("Failed to load versionedFileManifest from HTML", err);
+  }
+
+  var pathJson = await (await fetch(svgMap.getCORSURL(pathEndpoint))).json();
+  var rel = (pathJson.filePath || "").replace(/^\/\.\.\//, "").replace(/^\//, "");
+  var dataUrl = baseUrl + "/" + rel;
+  return await (await fetch(svgMap.getCORSURL(dataUrl))).json();
+}
+
+function wireCheckboxes() {
+  document.querySelectorAll("input[data-cat]").forEach(function (el) {
+    el.addEventListener("change", function () {
+      enabled[el.getAttribute("data-cat")] = el.checked;
+      redraw();
+    });
+  });
+}
+
+function clearGroup(parent) {
+  if (!parent) return;
+  while (parent.firstChild) {
+    parent.removeChild(parent.firstChild);
+  }
+}
+
+function redraw() {
+  if (!cachedData) return;
+
+  var targetGroup = svgImage.getElementById("pois");
+  clearGroup(targetGroup);
+
+  var features = [];
+  if (enabled.cameras) {
+    features = features.concat(buildCamerasGeoJSON(cachedData).features);
+  }
+  features = features.concat(
+    buildIssuesGeoJSON(cachedData).features.filter(function (f) {
+      return enabled[f.properties.category];
+    })
+  );
+
+  var geojson = { type: "FeatureCollection", features: features };
+
+  var excludeKeys = {
+    "stroke": true,
+    "stroke-width": true,
+    "stroke-opacity": true,
+    "fill": true,
+    "fill-opacity": true,
+    "marker-symbol": true
+  };
+
+  var metaDictSet = {};
+  features.forEach(function (f) {
+    if (f && f.properties) {
+      Object.keys(f.properties).forEach(function (key) {
+        if (!excludeKeys[key]) {
+          metaDictSet[key] = true;
+        }
+      });
+    }
+  });
+  var metaDict = Object.keys(metaDictSet);
+
+  svgMap.setShowPoiProperty(customShowPoiProperty, layerID);
+  svgImage.documentElement.setAttribute("property", metaDict.join());
+  
+  // default POIiconId = "p1"; per-feature marker-symbol overrides (p1 / px)
+  svgMapGIStool.drawGeoJson(
+    geojson,
+    layerID,
+    "#888888",
+    2,
+    "none",
+    "p1",
+    "title",
+    null,
+    targetGroup,
+    metaDict
+  );
+  svgMap.refreshScreen();
+}
+
+function buildCamerasGeoJSON(data) {
+  var items = data.Entities || [];
+  var features = items
+    .filter(function (e) {
+      return e.IconClass === "spriteCameraIcon" || e.EntityType === 3;
+    })
+    .map(function (e) {
+      var loc = parseLocation(e.Location);
+      if (!loc) return null;
+
+      var rawImg = e.ImageUrl || "";
+      var img = "";
+
+      if (rawImg) {
+        var fileName = rawImg.split("/").pop();
+
+        if (manifestMap[fileName]) {
+          rawImg = rawImg.replace(fileName, manifestMap[fileName]);
+        }
+
+        img = rawImg.startsWith("http")
+          ? rawImg
+          : baseUrl + (rawImg.startsWith("/") ? rawImg : "/" + rawImg);
+      }
+
+      return {
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [loc[1], loc[0]] },
+        properties: {
+          id: e.EntityId || "",
+          Location: "NWT Camera",
+          title: "NWT Camera",
+          imageUrl: img, 
+          category: "cameras",
+          description: "",
+          priority: "",
+          "marker-symbol": "p1"
+        }
+      };
+    })
+    .filter(Boolean);
+
+  return { type: "FeatureCollection", features: features };
+}
+
+function buildIssuesGeoJSON(data) {
+  var issues = data.Issues || [];
+  var coordsPool = decodePolyline(data.CoordsEncoded || "");
+  var cursor = 0;
+  var features = [];
+
+  var subTypeNames = data.EntitySubTypeNames || {};
+  var locationTypeNames = data.IssueLocationTypeNames || {};
+
+  issues.forEach(function (issue) {
+    var divId = String(issue.DivisionId || "");
+    var category = DIVISION[divId] || "advisories";
+    var tvi = issue.TableViewInfo || {};
+    var descObj = issue.Description || {};
+
+    var issueTypeId = tvi.IssueTypeId || "";
+    var conditionText = "";
+    if (subTypeNames[issueTypeId] && subTypeNames[issueTypeId]["en-us"]) {
+      conditionText = subTypeNames[issueTypeId]["en-us"];
+    }
+
+    var rawDesc = (typeof descObj === "object" && descObj.BaseDescription) || "";
+    var baseDesc = rawDesc;
+    if (!baseDesc && conditionText) {
+      baseDesc = conditionText;
+    } else if (!baseDesc) {
+      baseDesc = tvi.Location || "";
+    }
+
+    var locationName = tvi.Location || "";
+    var geoms = issue.Geometry || [];
+    if (!geoms.length) return;
+
+    var catStyle = CATEGORY_STYLE[category] || CATEGORY_STYLE.advisories;
+
+    geoms.forEach(function (g) {
+      var n = g.NumPoints || 0;
+      if (n <= 0) return;
+
+      var slice = coordsPool.slice(cursor, cursor + n);
+      cursor += n;
+      if (slice.length === 0) return;
+
+      var marker = (g.MarkerInfo && g.MarkerInfo.LocationName) || locationName;
+      var title = marker || locationName || CATEGORY_LABEL[category] || category;
+
+      var markerLocTypeId = g.MarkerInfo ? g.MarkerInfo.LocationTypeId : "";
+      var markerCondition = (locationTypeNames[markerLocTypeId] && locationTypeNames[markerLocTypeId]["en-us"]) || "";
+
+      // POI
+      if (slice.length === 1) {
+        features.push({
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [slice[0][1], slice[0][0]] },
+          properties: {
+            id: issue.IssueId || "",
+            Location: title,
+            title: title,
+            imageUrl: "",
+            category: category,
+            condition: conditionText || markerCondition,
+            description: String(baseDesc).slice(0, 300),
+            priority: String(issue.Priority != null ? issue.Priority : ""),
+            "marker-symbol": "px" 
+          }
+        });
+        return;
+      }
+
+      // line 
+      var stroke = g.Color || catStyle.stroke || "#888888";
+      var strokeOpacity = g.LineOpacity != null ? g.LineOpacity : (catStyle["stroke-opacity"] || 0.9);
+      var strokeWidth = g.LineThickness != null
+        ? Math.max(1, Math.min(8, Math.round(Number(g.LineThickness) / 2)))
+        : (catStyle["stroke-width"] || 3);
+      var fillOpacity = g.FillOpacity != null ? g.FillOpacity : 0;
+
+      var lineCoords = slice.map(function (p) {
+        return [p[1], p[0]];
+      });
+
+      features.push({
+        type: "Feature",
+        geometry: { type: "LineString", coordinates: lineCoords },
+        properties: {
+          id: issue.IssueId || "",
+          Location: title,
+          title: title,
+          imageUrl: "",
+          category: category,
+          condition: conditionText || markerCondition,
+          description: String(baseDesc).slice(0, 300),
+          priority: String(issue.Priority != null ? issue.Priority : ""),
+          stroke: stroke,
+          "stroke-width": strokeWidth,
+          "stroke-opacity": strokeOpacity,
+          fill: "none",
+          "fill-opacity": fillOpacity
+        }
+      });
+
+      var mid = slice[Math.floor(slice.length / 2)];
+      features.push({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [mid[1], mid[0]] },
+        properties: {
+          id: (issue.IssueId || "") + "-mid",
+          Location: title,
+          title: title,
+          imageUrl: "",
+          category: category,
+          condition: conditionText || markerCondition,
+          description: String(baseDesc).slice(0, 300),
+          priority: String(issue.Priority != null ? issue.Priority : ""),
+          "marker-symbol": "px" 
+        }
+      });
+    });
+  });
+
+  return { type: "FeatureCollection", features: features };
+}
+
+function parseLocation(s) {
+  if (!s || typeof s !== "string") return null;
+  var m = s.match(/\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)/);
+  if (!m) return null;
+  return [parseFloat(m[1]), parseFloat(m[2])];
+}
+
+function decodePolyline(str) {
+  var index = 0;
+  var lat = 0;
+  var lng = 0;
+  var coordinates = [];
+  var shift, result, byte, dlat, dlng;
+
+  while (index < str.length) {
+    shift = 0;
+    result = 0;
+    do {
+      byte = str.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+    dlat = result & 1 ? ~(result >> 1) : result >> 1;
+    lat += dlat;
+
+    shift = 0;
+    result = 0;
+    do {
+      byte = str.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+    dlng = result & 1 ? ~(result >> 1) : result >> 1;
+    lng += dlng;
+
+    coordinates.push([lat / 1e5, lng / 1e5]);
+  }
+  return coordinates;
+}
+</script>
+<body>
+  <h4>Northwest Territories (DriveNWT)</h4>
+  <div style="font-size:12px; line-height:1.5; color:#444;">
+    <div>Source: <a href="https://drivenwt.ca/" target="_blank">DriveNWT</a>
+      (Government of the Northwest Territories)</div>
+    <div style="margin:6px 0;">Icon: <img src="cameraFill2.png" width="18" height="18" style="vertical-align: middle;"></div>
+
+    <div style="margin-top:8px;">
+      <label style="display:block;"><input type="checkbox" data-cat="cameras" checked> Cameras</label>
+      <label style="display:block;"><input type="checkbox" data-cat="roadConditions"> Road Conditions</label>
+      <label style="display:block;"><input type="checkbox" data-cat="ferries"> Ferries &amp; Ice Crossings</label>
+      <label style="display:block;"><input type="checkbox" data-cat="advisories"> Advisories</label>
+      <label style="display:block;"><input type="checkbox" data-cat="communities"> Communities</label>
+      <label style="display:block;"><input type="checkbox" data-cat="weightRestrictions"> Weight Restrictions</label>
+    </div>
+
+    <div style="margin-top:8px; color:#666;">
+      Non-commercial open source.<br>
+      GNWT copyright acknowledged under<br>
+      <a href="https://www.gov.nt.ca/terms" target="_blank">GNWT Terms of Use</a>.<br>
+      Not affiliated with or endorsed by the Government of the Northwest Territories.
+    </div>
+  </div>
+</body>
+</html>

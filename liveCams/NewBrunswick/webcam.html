@@ -1,0 +1,84 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>New Brunswick Live Cam Layer</title>
+</head>
+<script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
+<script src="customShowPoiProperty.js"></script>
+<script>
+// Description:
+//  511.gnb.ca (New Brunswick 511) live camera layer
+//
+// License: (MPL v2)
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+var endPointUrl = "https://511.gnb.ca/map/mapIcons/Cameras";
+addEventListener("layerWebAppReady", async  function(){
+        var rawJson = await (await fetch(svgMap.getCORSURL(endPointUrl))).json();
+        var gjs = convertToGeoJSON(rawJson, ["imageUrl"]);
+        
+        setTitle(gjs.geojson, "Location");
+        const metaDict = gjs.propertyList;
+        
+        svgMap.setShowPoiProperty(customShowPoiProperty, layerID);
+        svgImage.documentElement.setAttribute("property", metaDict.join());
+        svgMapGIStool.drawGeoJson(gjs.geojson, layerID, "red", 2, "orange", "p1", "name", null, null, metaDict);
+        svgMap.refreshScreen();
+});
+function convertToGeoJSON(data, priorityProps = []) {
+  const propertySet = new Set(["id", "Location", "imageUrl"]);
+  const items = data.item2 || [];
+  
+  const features = items.map(item => {
+    const camId = item.itemId;
+    const loc = item.location;
+    if (!Array.isArray(loc)) return null;
+    
+    return {
+      type: "Feature",
+      geometry: {
+        type: "Point",
+        coordinates: [loc[1], loc[0]]
+      },
+      properties: {
+        id: camId,
+        Location: item.title || `Camera ${camId}`,
+        imageUrl: `https://511.gnb.ca/map/Cctv/${camId}`
+      }
+    };
+  }).filter(f => f !== null);
+  const allProps = Array.from(propertySet);
+  const header = priorityProps.filter(p => propertySet.has(p));
+  const remainder = allProps.filter(p => !priorityProps.includes(p)).sort();
+  
+  return {
+    geojson: {
+      type: "FeatureCollection",
+      features: features
+    },
+    propertyList: [...header, ...remainder]
+  };
+}
+function setTitle(gjs, titlePropName){
+        gjs.features.forEach(function(item){
+                if(item.properties[titlePropName]){
+                        item.properties.title = item.properties[titlePropName];
+                }
+        });
+}
+</script>
+<body>
+  <h4>New Brunswick Live Cam Layer</h4>
+  <div style="font-size:12px; line-height:1.5; color:#444;">
+    <div>Source: <a href="https://511.gnb.ca/" target="_blank">511 New Brunswick</a> (Government of New Brunswick)</div>
+    <div style="margin:6px 0;">Icon: <img src="cameraFill2.png" width="18" height="18" style="vertical-align: middle;"></div>
+    <div style="margin-top:8px; color:#666;">
+      Non-commercial open source under<br>
+      <a href="https://511.gnb.ca/about/about" target="_blank">511 New Brunswick Terms of Use</a>.<br>
+      Not affiliated with or endorsed by the Government of New Brunswick.
+    </div>
+  </div>
+</body>
+</html>
