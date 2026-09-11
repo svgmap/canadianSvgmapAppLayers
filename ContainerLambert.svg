@@ -156,12 +156,19 @@ function lambertConformalConicCanada(options = {}) {
 <animation xlink:href="./wildfires/canadaActiveFires/canadaActiveFires.svg" x="-3000" y="-3000" width="6000" height="6000" title="Active Fires - Canada" visibility="hidden" class="Canada_Wildfires clickable"/>
 
 <!-- Canadian road libecams -->
+<!-- City libecams -->
 <animation xlink:href="./liveCams/Calgary/webcam.svg" x="-30000" y="-30000" width="60000" height="60000" title="Calgary City" visibility="hidden" opacity="0.7" class="Canadian_RoadLiveCameras"/>
 <animation xlink:href="./liveCams/Surrey/webcam.svg" x="-30000" y="-30000" width="60000" height="60000" title="Surrey City" visibility="hidden" opacity="0.7" class="Canadian_RoadLiveCameras"/>
 <animation xlink:href="./liveCams/Vancouver/webcam.svg" x="-30000" y="-30000" width="60000" height="60000" title="Vancouver City" visibility="hidden" opacity="0.7" class="Canadian_RoadLiveCameras"/>
 <animation xlink:href="./liveCams/Toronto/webcam.svg" x="-30000" y="-30000" width="60000" height="60000" title="Toronto City" visibility="hidden" opacity="0.7" class="Canadian_RoadLiveCameras"/>
 <animation xlink:href="./liveCams/Ottawa/webcam.svg" x="-30000" y="-30000" width="60000" height="60000" title="Ottawa City" visibility="hidden" opacity="0.7" class="Canadian_RoadLiveCameras"/>
 
+<animation xlink:href="./liveCams/NewBrunswick/webcam.svg" x="-30000" y="-30000" width="60000" height="60000" title="New Brunswick" visibility="hidden" opacity="0.7" class="Canadian_RoadLiveCameras"/>
+<animation xlink:href="./liveCams/NorthwestTerritories/webcam.svg" x="-30000" y="-30000" width="60000" height="60000" title="Northwest Territories" visibility="hidden" opacity="0.7" class="Canadian_RoadLiveCameras"/>
+<animation xlink:href="./liveCams/Yukon/webcam.svg" x="-30000" y="-30000" width="60000" height="60000" title="Yukon" visibility="hidden" opacity="0.7" class="Canadian_RoadLiveCameras"/>
+<animation xlink:href="./liveCams/PEI/webcam.svg" x="-30000" y="-30000" width="60000" height="60000" title="Prince Edward Island" visibility="hidden" opacity="0.7" class="Canadian_RoadLiveCameras"/>
+<animation xlink:href="./liveCams/NewfoundlandAndLabrador/webcam.svg" x="-30000" y="-30000" width="60000" height="60000" title="Newfoundland and Labrador" visibility="hidden" opacity="0.7" class="Canadian_RoadLiveCameras"/>
+<animation xlink:href="./liveCams/NovaScotia/webcam.svg" x="-30000" y="-30000" width="60000" height="60000" title="NovaScotia" visibility="hidden" opacity="0.7" class="Canadian_RoadLiveCameras"/>
 <animation xlink:href="./liveCams/Quebec/webcam.svg" x="-30000" y="-30000" width="60000" height="60000" title="Québec (Données Québec)" visibility="hidden" opacity="0.7" class="Canadian_RoadLiveCameras"/>
 <animation xlink:href="./liveCams/Ontario/webcam.svg" x="-30000" y="-30000" width="60000" height="60000" title="Ontario (Ontario 511)" visibility="hidden" opacity="0.7" class="Canadian_RoadLiveCameras"/>
 <animation xlink:href="./liveCams/Manitoba/webcam.svg" x="-30000" y="-30000" width="60000" height="60000" title="Manitoba (Manitoba 511)" visibility="hidden" opacity="0.7" class="Canadian_RoadLiveCameras"/>
