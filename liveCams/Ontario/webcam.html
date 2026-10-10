@@ -7,53 +7,51 @@
 <script src="https://cdn.jsdelivr.net/gh/svgmap/svgmapjs@latest/svgMapLayerLib.js"></script>
 <script>
 // Description:
-//	511on.ca live camera layer (Direct Image Access)
+//	511on.ca (Ontario 511) live camera layer
 //
 // License: (MPL v2)
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-var endPointUrl = "https://511on.ca/api/v2/get/cameras";
-// スキーマ（プロパティの並び順）を厳密に定義
-var metaDict = ["itemId", "name", "source", "imageUrl", "desc"];
+var baseUrl = "https://511on.ca";
+var endPointUrl = "https://511on.ca/map/mapIcons/Cameras";
 
-addEventListener("layerWebAppReady", async  function(){
-	var camJson = await (await fetch(svgMap.getCORSURL(endPointUrl))).json();
-	var gjs = convertONToGeoJSON(camJson);
-	
-	// title プロパティの生成（ティッカー用）
-	setTitle(gjs, "name");
-	
-	svgMap.setShowPoiProperty(showONProperty, layerID);
-	
-	// SVGのルートにスキーマをセット（これがメタデータの「型」になる）
-	svgImage.documentElement.setAttribute("property", metaDict.join(","));
-	
-	// drawGeoJson に metaDict を渡して、content属性を正しく生成させる
-	svgMapGIStool.drawGeoJson(gjs, layerID, "red", 2, "orange", "p2", "name", null, null, metaDict);
-	svgMap.refreshScreen();
+addEventListener("layerWebAppReady", async function(){
+	try {
+		var camJson = await (await fetch(svgMap.getCORSURL(endPointUrl))).json();
+		var gjs = convertONToGeoJSON(camJson);
+		
+		setTitle(gjs, "itemId");
+		const metaDict = gjs.propertyList;
+		
+		svgMap.setShowPoiProperty(showONProperty, layerID);
+		svgImage.documentElement.setAttribute("property", metaDict.join());
+		svgMapGIStool.drawGeoJson(gjs, layerID, "red", 2, "orange", "p1", "name", null, null, metaDict);
+		svgMap.refreshScreen();
+	} catch (e) {
+		console.error("Ontario 511 load failed", e);
+	}
 });
 
 /**
- * オンタリオ州の初期JSONからGeoJSON化
+ * オンタリオ州の初期位置リストをGeoJSON化
  */
 function convertONToGeoJSON(rawData) {
-	const features = rawData.map(cam => {
-		const firstView = cam.Views && cam.Views.length > 0 ? cam.Views[0] : null;
-		
+	var items = (rawData && rawData.item2) || [];
+	const features = items.map(cam => {
 		return {
 			type: "Feature",
 			geometry: {
 				type: "Point",
-				coordinates: [cam.Longitude, cam.Latitude]
+				coordinates: [cam.location[1], cam.location[0]]
 			},
 			properties: {
-				itemId: cam.Id,
-				name: cam.Location || "Unknown",
+				itemId: String(cam.itemId),
+				name: "Loading...",
 				source: "Ontario 511",
-				imageUrl: firstView ? firstView.Url : "",
-				desc: firstView ? (firstView.Description || cam.Roadway) : (cam.Roadway || "")
+				imageUrl: null,
+				desc: null,
 			}
 		};
 	});
@@ -61,48 +59,117 @@ function convertONToGeoJSON(rawData) {
 	return {
 		type: "FeatureCollection",
 		features: features,
-		propertyList: metaDict // ここも固定したスキーマを返す
+		propertyList: ["title", "itemId", "source", "imageUrl", "desc"],
 	};
 }
 
 function setTitle(gjs, titlePropName) {
 	(gjs.features).forEach(function(item) {
-		item.properties.title = item.properties[titlePropName];
+		if (item.properties.name) {
+			item.properties.title = "Camera:" + item.properties[titlePropName];
+		}
 	});
 }
 
 /**
- * オンタリオ州：モーダル表示
+ * オンタリオ州専用：クリック時に複数カメラ対応のHTMLテーブルを動的生成して表示
  */
 async function showONProperty(target) {
-	var message = "<table border='1' style='font-size:11px;word-break: break-all;table-layout:fixed;width:100%;border:solid orange;border-collapse: collapse'>";
-	message += "<tr><th style='width:20%'>name</th><th>value</th></tr>";
-	
-	// スキーマとコンテンツを正確にパース
 	var metaSchema = target.ownerDocument.firstChild.getAttribute("property").split(",");
 	var metaData = svgMap.parseEscapedCsvLine(target.getAttribute("content"));
+	var itemId = metaData[metaSchema.indexOf("itemId")];
+
+	const tooltipUrl = `https://511on.ca/tooltip/Cameras/${itemId}?lang=en`;
+	const itemData = await getOnCamItemData(tooltipUrl);
+
+	var message = "<table border='1' style='font-size:11px;word-break:break-all;table-layout:fixed;width:100%;border:solid orange;border-collapse:collapse'>";
+	message += "<tr><th style='width:25%'>Item</th><th>Details</th></tr>";
 	
-	metaData.forEach(function(itm, idx) {
-		var key = metaSchema[idx];
-		if (key === "imageUrl" && itm) {
-			itm = `<a target="img" href="${itm}"><img style="opacity:1" src="${itm}" width="100%" /></a>`;
+	if (itemData) {
+		message += "<tr><td>Location</td><td><strong>" + itemData.title + "</strong></td></tr>";
+		if (itemData.area) {
+			message += "<tr><td>Area</td><td>" + itemData.area + "</td></tr>";
 		}
-		message += "<tr><td>" + key + " </td><td> " + (itm || "") + "</td></tr>";
-	});
+		message += "<tr><td>Source</td><td>Ontario 511</td></tr>";
+
+		// 複数カメラ画像のレンダリング
+		if (itemData.images && itemData.images.length > 0) {
+			message += "<tr><td colspan='2' style='background:#f5f5f5;text-align:center;font-weight:bold;'>Camera Views (" + itemData.images.length + ")</td></tr>";
+			
+			itemData.images.forEach(function(cam) {
+				message += "<tr><td colspan='2' style='padding:6px;'>";
+				if (cam.desc) {
+					message += "<div style='font-weight:bold;margin-bottom:3px;color:#333;'>方向: " + cam.desc + "</div>";
+				}
+				if (cam.imageUrl) {
+					message += "<a target='_blank' href='" + cam.imageUrl + "'><img style='width:100%;display:block;border:1px solid #ccc;' src='" + cam.imageUrl + "' /></a>";
+				}
+				message += "</td></tr>";
+			});
+		} else {
+			message += "<tr><td colspan='2'>No camera images available.</td></tr>";
+		}
+	} else {
+		message += "<tr><td>Camera ID</td><td>" + itemId + "</td></tr>";
+		message += "<tr><td colspan='2'>Failed to load camera data.</td></tr>";
+	}
 
 	message += "</table>";
-	message += "<div style='font-size:9px; margin-top:5px; color:#666;'>© 2026, King's Printer for Ontario (Open Government Licence – Ontario).</div>";
+	message += "<div style='font-size:9px; margin-top:5px; color:#666;'>Contains information from Ontario 511 / Ministry of Transportation Ontario (MTO).</div>";
+	
+	// 画像枚数に応じてダイアログの高さを調整
+	var modalHeight = (itemData && itemData.images && itemData.images.length > 1) ? 480 : 380;
+	svgMap.showModal(message, 400, modalHeight);
+}
 
-	svgMap.showModal(message, 400, 380);
+/**
+ * ツールチップHTMLからすべてのカメラ画像(マルチビュー)を抽出
+ */
+async function getOnCamItemData(tturl) {
+	try {
+		const res = await fetch(svgMap.getCORSURL(tturl));
+		const html = await res.text();
+
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(html, "text/html");
+
+		// 場所名
+		const titleEl = doc.querySelector("#CameraTooltipDescriptionColumn strong");
+		const title = titleEl ? titleEl.textContent.trim() : "Ontario Camera";
+
+		// エリア情報 (Kenora, Grey など)
+		const areaEl = doc.querySelector("td[colspan='2'] strong");
+		const area = areaEl ? areaEl.textContent.trim() : "";
+
+		// すべてのカメラ画像要素を取得
+		const imgNodes = doc.querySelectorAll(".cctvImage, img[data-lazy]");
+		const images = [];
+
+		imgNodes.forEach(function(imgTag) {
+			const desc = imgTag.getAttribute("data-fs-desc") || 
+						 (imgTag.previousElementSibling && imgTag.previousElementSibling.classList.contains("dirDescHeader") ? imgTag.previousElementSibling.textContent.trim() : "");
+			
+			const relImgPath = imgTag.getAttribute("data-lazy") || imgTag.getAttribute("src") || "";
+			if (relImgPath) {
+				const imageUrl = `${baseUrl}${relImgPath.startsWith('/') ? '' : '/'}${relImgPath}?t=${Date.now()}`;
+				images.push({ desc, imageUrl });
+			}
+		});
+
+		return { title, area, images };
+	} catch (e) {
+		console.error("Failed to parse Ontario camera tooltip", e);
+		return null;
+	}
 }
 </script>
 
 <body>
 	<h4>Ontario Live Cam Layer</h4>
 	<div style="font-size:12px; list-style-type: none; padding: 0;">
-		<li style="margin-bottom: 4px;">Source: <a href="https://511on.ca/" target="_blank">Ontario 511</a></li>
-		<li style="margin-bottom: 4px;">Icon: <img src="cameraFill3.png" width="18" height="18" style="vertical-align: middle;">
-		<li>© 2026, King's Printer for Ontario.</li>
+		<li style="margin-bottom: 4px;">Source: <a href="https://511on.ca/" target="_blank">Ontario 511 (MTO)</a></li>
+		<li style="margin-bottom: 4px;">Icon: <img src="cameraFill2.png" width="18" height="18" style="vertical-align: middle;"></li>
+		<li>© Queen's Printer for Ontario / Ministry of Transportation.</li>
 	</div>
 </body>
 </html>
