@@ -130,6 +130,7 @@ function lambertConformalConicCanada(options = {}) {
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="../svgmapAppLayers/appLayers/openinframap/openinframap.svg" title="Open Infrastructure Map" class="Infrastructures clickable" visibility="hidden"/>
 
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="../svgmapAppLayers/appLayers/usgsEq/usgsEarthquake.svg" title="Earthquake Hazards Program(USGS)" class="Earthquake clickable" visibility="hidden" opacity="0.7"/> 
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="./nrcan/earthquakes/canada_eq.svg" title="Earthquakes Canada" class="Earthquake clickable" visibility="hidden" opacity="0.7"/> 
 
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="../svgmapAppLayers/appLayers/noaa_nowCOAST/wmsMercator.svg#global_sea_surface_temperature" data-controller="noaa.html#exec=appearOnLayerLoad" title="NOAA SST: Sea Surface Temperature data." data-cross-origin-proxy-required="true" class="Weather" visibility="hidden" opacity="0.6"/> 
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="../svgmapAppLayers/appLayers/noaa_nowCOAST/wmsMercator.svg#ldn_lightning_strike_density" data-controller="noaa.html#exec=appearOnLayerLoad" title="NOAA Lightning: Real-time lightning strike detection." data-cross-origin-proxy-required="true" class="Weather" visibility="hidden" opacity="0.6"/> 
