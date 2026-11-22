@@ -95,6 +95,7 @@ function lambertConformalConicCanada(options = {}) {
 
 <!-- Global: Basemaps -->
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="../svgmapAppLayers/basemaps/dynamicWMTS.svg" title="sentinel2_2018_WMTS" class="basemap switch" visibility="hidden"/>
+<animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="../svgmapAppLayers/basemaps/pmtilesMercator/pmtilesMercator.svg#osm_bright" title="vectorTileBaseMaps" class="basemap switch" visibility="hidden"/>
 <animation x="-30000" y="-30000" width="60000" height="60000" xlink:href="../svgmapAppLayers/basemaps/osmTileProviders/osmtp.svg" title="OpenStreetMap Etc" class="basemap switch" visibility="hidden"/>
 <animation x="-300" y="-300" width="600" height="600" xlink:href="../svgmapAppLayers/basemaps/dynamicOSM_r11.svg" title="OpenStreetMap(Global)" class="basemap switch" visibility="visible"/>
 
